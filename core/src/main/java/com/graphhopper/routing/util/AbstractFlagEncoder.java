@@ -24,6 +24,9 @@ import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMWay;
 import com.graphhopper.reader.OSMRelation;
 import com.graphhopper.util.*;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 import java.util.*;
 
@@ -493,6 +496,112 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
             logger.warn("Cannot parse " + str + " using 0 minutes");
         }
         return 0;
+    }
+
+    final SimpleDateFormat monthDateFormatter = new SimpleDateFormat("MMM dd");
+    final SimpleDateFormat monthFormatter = new SimpleDateFormat("MMM");
+
+    /**
+     * A conditional restriction contains a date time interval which this method parses. For
+     * example: maxspeed:conditional=100 @ (20:00-06:00) or construction=yes @ Dec 25-Dec 28
+     * <p>
+     * @return true if the conditional applies or false otherwise and therefor no restriction would
+     * apply. Returns also false if condition pattern wasn't supported. Currently supported patterns
+     * are 'MMM dd-MMM dd' and 'MMM-MMM' i.e. only without explicit time information.
+     * <p>
+     * @see http://wiki.openstreetmap.org/wiki/Conditional_restrictions
+     * @see http://wiki.openstreetmap.org/wiki/Key:opening_hours
+     */
+    protected boolean doesConditionHold( Date inputDate, String condition )
+    {
+        if (condition.contains(";"))
+            throw new IllegalStateException("split conditional value before calling this method: " + condition);
+
+        if (condition.startsWith("(") && condition.endsWith(")"))
+            condition = condition.substring(1, condition.length() - 1);
+
+        int minusIndex = condition.indexOf("-");
+        if (minusIndex > 0)
+        {
+            Calendar parsedFromDate;
+            Calendar parsedToDate;
+            try
+            {
+                parsedFromDate = parse(monthDateFormatter, condition.substring(0, minusIndex));
+                parsedToDate = parse(monthDateFormatter, condition.substring(minusIndex + 1));
+            } catch (ParseException ex)
+            {
+                try
+                {
+                    parsedFromDate = parse(monthFormatter, condition.substring(0, minusIndex));
+                    parsedToDate = parse(monthFormatter, condition.substring(minusIndex + 1));
+                    // set last day of month, independent of inverse or not                    
+                    parsedToDate.set(Calendar.DAY_OF_MONTH, parsedToDate.getActualMaximum(Calendar.DAY_OF_MONTH));
+                } catch (ParseException ex2)
+                {
+                    return false;
+                }
+            }
+
+            if (parsedToDate.before(parsedFromDate))
+            {
+                // compare to 'inverse' interval, now with ||
+                if (inputDate.getTime() <= parsedToDate.getTimeInMillis()
+                        || inputDate.getTime() >= parsedFromDate.getTimeInMillis())
+                    return true;
+            } else
+            {
+                if (inputDate.getTime() >= parsedFromDate.getTimeInMillis()
+                        && inputDate.getTime() <= parsedToDate.getTimeInMillis())
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    final Calendar parse( DateFormat formatter, String str ) throws ParseException
+    {
+        Date ret = formatter.parse(str);
+        Calendar cal = Calendar.getInstance();
+        int currentYear = cal.get(Calendar.YEAR);
+        cal.setTime(ret);
+        cal.set(Calendar.YEAR, currentYear);
+        return cal;
+    }
+
+    /**
+     * @return the key value pairs as string[0] and string[1] but null if invalid input string.
+     */
+    protected static List<String[]> parseConditional( String inputStr )
+    {
+        String[] strsSplit = inputStr.split(";");
+        List<String[]> list = new ArrayList<String[]>(strsSplit.length);
+
+        for (String str : strsSplit)
+        {
+            String values[] = null;
+            int index = str.indexOf("@");
+            if (index > 0)
+            {
+                values = new String[]
+                {
+                    str.substring(0, index).trim(), str.substring(index + 1).trim()
+                };
+            }
+
+            if (values == null || values[0].length() == 0 || values[1].length() == 0)
+                // return invalid
+                return null;
+
+            list.add(values);
+        }
+
+        // return invalid
+        if (list.isEmpty())
+            return null;
+
+        return list;
     }
 
     /**
