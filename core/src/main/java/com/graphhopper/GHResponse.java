@@ -36,8 +36,8 @@ public class GHResponse
     private final List<Throwable> errors = new ArrayList<Throwable>(4);
     private PointList list = PointList.EMPTY;
     private double distance;
-    private double ascendMeters;
-    private double descendMeters;
+    private double ascend;
+    private double descend;
     private double routeWeight;
     private long time;
     private InstructionList instructions;
@@ -124,37 +124,42 @@ public class GHResponse
         return distance;
     }
 
-    
-    public GHResponse setAscendMeters( double ascendMeters )
+    public GHResponse setAscend( double ascend )
     {
-        this.ascendMeters = ascendMeters;
+        if (ascend < 0)
+            throw new IllegalArgumentException("ascend has to be strictly positive");
+
+        this.ascend = ascend;
         return this;
     }
 
     /**
-     * This method returns the ascend meters climbing upwards. 
+     * This method returns the total elevation change (going upwards) in meter.
      * <p>
-     * @return climb meters in meter
+     * @return ascend in meter
      */
-    public double getAscendMeters()
+    public double getAscend()
     {
-        return ascendMeters;
+        return ascend;
     }
 
-    public GHResponse setDescendMeters( double descendMeters )
+    public GHResponse setDescend( double descend )
     {
-        this.descendMeters = descendMeters;
+        if (descend < 0)
+            throw new IllegalArgumentException("descend has to be strictly positive");
+
+        this.descend = descend;
         return this;
     }
 
     /**
-     * This method returns the descend meters going downwards. 
+     * This method returns the total elevation change (going downwards) in meter.
      * <p>
-     * @return decline meters in meter
+     * @return decline in meter
      */
-    public double getDescendMeters()
+    public double getDescend()
     {
-        return descendMeters;
+        return descend;
     }
 
     public GHResponse setTime( long timeInMillis )

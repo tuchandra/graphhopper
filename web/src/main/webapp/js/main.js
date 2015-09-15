@@ -1039,10 +1039,12 @@ function routeLatLng(request, doQuery) {
 
         var tmpTime = createTimeString(path.time);
         var tmpDist = createDistanceString(path.distance);
-        var tmpEleMeters="";
-        if  (request.hasElevation())
-           tmpEleMeters = createEleMetersString(path.ascendmeters,path.descendmeters);
-        descriptionDiv.append(tr("routeInfo", [tmpDist, tmpTime]) + tmpEleMeters);
+        var tmpEleInfoStr = "";
+        if (request.hasElevation())
+            tmpEleInfoStr = createEleInfoString(path.ascend, path.descend);
+
+        descriptionDiv.append(tr("routeInfo", [tmpDist, tmpTime]));
+        descriptionDiv.append(tmpEleInfoStr);
 
         $('.defaulting').each(function (index, element) {
             $(element).css("color", "black");
@@ -1093,7 +1095,7 @@ function routeLatLng(request, doQuery) {
             if (request.getVehicle().toUpperCase() === "FOOT") {
                 osmVehicle = "foot";
             }
-            osmRouteLink.attr("href", "http://www.openstreetmap.org/directions?engine=graphhopper_" 
+            osmRouteLink.attr("href", "http://www.openstreetmap.org/directions?engine=graphhopper_"
                     + osmVehicle + "&route=" + encodeURIComponent(request.from.lat + "," + request.from.lng + ";" + request.to.lat + "," + request.to.lng));
             hiddenDiv.append(osmRouteLink);
 
@@ -1133,11 +1135,18 @@ function createDistanceString(dist) {
     return dist + tr2("kmAbbr");
 }
 
-function createEleMetersString(ascendmeters,descendmeters) {
-    if ((ascendmeters!== 0) || (descendmeters!==0))
-        return ", " + tr("totalAscend", [ascendmeters + tr2("mAbbr")]) + ", " + tr("totalDescend", [descendmeters + tr2("mAbbr")]);
-    else
-        return "";
+function createEleInfoString(ascend, descend) {
+    var str = "";
+    if (ascend > 0 || descend > 0) {
+        str = "<br/> ";
+        if (ascend > 0)
+            str += "&#8599;" + round(ascend, 1) + tr2("mAbbr");
+
+        if (descend > 0)
+            str += " &#8600;" + round(descend, 1) + tr2("mAbbr");
+    }
+
+    return str;
 }
 
 function createTimeString(time) {

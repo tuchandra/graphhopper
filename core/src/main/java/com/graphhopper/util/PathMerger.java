@@ -35,29 +35,27 @@ public class PathMerger
     private boolean simplifyResponse = true;
     private DouglasPeucker douglasPeucker;
     private boolean calcPoints = true;
-    private double ascendMeters;
-    private double descendMeters;
-   
-    private void calcAscendDescend(PointList fullpoints ) {
 
-        ascendMeters = 0;
-        descendMeters = 0;
-        double lastele = fullpoints.getElevation(0);
-        for (int i=0;i<fullpoints.size;++i)
+    private void calcAscendDescend( final GHResponse rsp, final PointList pointList )
+    {
+        double ascendMeters = 0;
+        double descendMeters = 0;
+        double lastEle = pointList.getElevation(0);
+        for (int i = 0; i < pointList.size(); ++i)
         {
-            double ele = fullpoints.getElevation(i);
-            double diff = Math.abs(ele - lastele);
+            double ele = pointList.getElevation(i);
+            double diff = Math.abs(ele - lastEle);
 
-            if (ele>lastele)
-               ascendMeters += diff;
+            if (ele > lastEle)
+                ascendMeters += diff;
             else
-               descendMeters  += diff;
+                descendMeters += diff;
 
-            lastele=ele;
+            lastEle = ele;
 
         }
-        ascendMeters = Math.round(ascendMeters);
-        descendMeters = Math.round(descendMeters);
+        rsp.setAscend(ascendMeters);
+        rsp.setDescend(descendMeters);
     }
 
     public void doWork( GHResponse rsp, List<Path> paths, Translation tr )
@@ -131,24 +129,19 @@ public class PathMerger
             String debug = rsp.getDebugInfo() + ", simplify (" + origPoints + "->" + fullPoints.getSize() + ")";
             rsp.setDebugInfo(debug);
             if (fullPoints.is3D)
-            {
-                calcAscendDescend(fullPoints);
-            }
+                calcAscendDescend(rsp, fullPoints);
         }
 
         if (enableInstructions)
-        {
             rsp.setInstructions(fullInstructions);
-        }
 
         if (!allFound)
-        {
             rsp.addError(new RuntimeException("Connection between locations not found"));
-        }
 
         rsp.setPoints(fullPoints).
                 setRouteWeight(fullWeight).
-                setDistance(fullDistance).setTime(fullTimeInMillis).setAscendMeters(ascendMeters).setDescendMeters(descendMeters);
+                setDistance(fullDistance).
+                setTime(fullTimeInMillis);
     }
 
     public PathMerger setCalcPoints( boolean calcPoints )
