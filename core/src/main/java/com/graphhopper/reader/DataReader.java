@@ -26,6 +26,13 @@ import java.util.Date;
  */
 public interface DataReader
 {
+    /**
+     * This method triggers reading the underlying data to create a graph
+     */
     void readGraph() throws IOException;
+
+    /**
+     * This method returns the date of the most recent change for the underlying data.
+     */
     Date getDataDate();
 }

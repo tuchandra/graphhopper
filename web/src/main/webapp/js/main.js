@@ -151,9 +151,9 @@ $(document).ready(function (e) {
                         vehiclesDiv.append(moreBtn);
                     }
                 }
-                metaVersionInfo="";
+                metaVersionInfo = "";
                 if (json.data_date)
-                   metaVersionInfo = metaVersionInfo + "<br/>Data date: " + json.data_date;
+                    metaVersionInfo = metaVersionInfo + "<br/>Data date: " + json.data_date;
                 if (json.import_date)
                     metaVersionInfo = metaVersionInfo + "<br/>Import date: " + json.import_date;
                 if (json.prepare_date)
@@ -1174,7 +1174,7 @@ function routeLatLng(request, doQuery) {
             hiddenDiv.append(bingLink);
             if (metaVersionInfo)
                 hiddenDiv.append(metaVersionInfo);
-            
+
             $("#info").append(hiddenDiv);
         }
     });

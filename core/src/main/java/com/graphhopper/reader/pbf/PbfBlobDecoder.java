@@ -7,6 +7,7 @@ import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMRelation;
 import com.graphhopper.reader.OSMWay;
 import com.graphhopper.reader.OSMFileHeader;
+import com.graphhopper.util.Helper;
 import org.openstreetmap.osmosis.osmbinary.Fileformat;
 import org.openstreetmap.osmosis.osmbinary.Osmformat;
 import gnu.trove.list.TLongList;
@@ -107,10 +108,8 @@ public class PbfBlobDecoder implements Runnable
         }
 
         OSMFileHeader fileheader = new OSMFileHeader();
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        df.setTimeZone(TimeZone.getTimeZone("UTC"));
-        long milliSecondDate = header.getOsmosisReplicationTimestamp();
-        fileheader.setTag("timestamp", df.format(new Date(milliSecondDate*1000)));
+        long milliSecondDate = header.getOsmosisReplicationTimestamp();        
+        fileheader.setTag("timestamp", Helper.createFormatter().format(new Date(milliSecondDate * 1000)));
         decodedEntities.add(fileheader);
 
         // Build a new bound object which corresponds to the header.

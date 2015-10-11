@@ -29,10 +29,8 @@ import java.lang.reflect.Constructor;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.Date;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipInputStream;
-import java.text.SimpleDateFormat;
 
 /**
  * A readable OSM file.
@@ -166,8 +164,7 @@ public class OSMInputFile implements Sink, Closeable
         {
             try
             {
-                fileheader = new OSMFileHeader();
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                fileheader = new OSMFileHeader();                
                 fileheader.setTag("timestamp", timestamp);
             }
             catch (Exception ex)

@@ -49,7 +49,6 @@ import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import gnu.trove.map.TLongObjectMap;
 import gnu.trove.map.hash.TLongObjectHashMap;
-import java.text.SimpleDateFormat;
 
 import java.util.*;
 
@@ -195,8 +194,7 @@ public class OSMReader implements DataReader
                                     + getNodeMap().getMemoryUsage() + "MB) " + Helper.getMemInfo());
                         }
                     }
-                }
-                else
+                } else
                 {
                     if (item.isType(OSMElement.RELATION))
                     {
@@ -212,14 +210,12 @@ public class OSMReader implements DataReader
                             logger.info(nf(tmpRelationCounter) + " (preprocess), osmWayMap:" + nf(getRelFlagsMap().size())
                                     + " " + Helper.getMemInfo());
                         }
-                    }
-                    else
+                    } else
                     {
                         if (item.isType(OSMElement.FILEHEADER))
                         {
                             final OSMFileHeader fileHeader = (OSMFileHeader) item;
-                            SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-                            osmDataDate = df.parse(fileHeader.getTag("timestamp"));
+                            osmDataDate = Helper.createFormatter().parse(fileHeader.getTag("timestamp"));
                         }
                     }
                 }
@@ -390,8 +386,7 @@ public class OSMReader implements DataReader
                 long dur = OSMTagParser.parseDuration(way.getTag("duration"));
                 // Provide the duration value in seconds in an artificial graphhopper specific tag:
                 way.setTag("duration:seconds", Long.toString(dur));
-            }
-            catch(Exception ex)
+            } catch (Exception ex)
             {
                 logger.warn("Parsing error in way with OSMID=" + way.getId() + " : " + ex.getMessage());
             }

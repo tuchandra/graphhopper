@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.text.SimpleDateFormat;
 
 import org.junit.After;
 import org.junit.Before;
@@ -74,23 +73,6 @@ public class OSMReaderTest
     private EdgeExplorer carOutExplorer;
     private EdgeExplorer carAllExplorer;
 
-    private static String convertUtcDateTimeToLocalDateTimeFormat(GraphHopper hopper, String utcDateTime)
-    {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        Date date = null;
-        try {
-	   date = sdf.parse(utcDateTime);
-        }
-        catch (Exception e)
-                {
-
-                }
-        if (date == null)
-            return "";
-        else
-            return hopper.formatDateTime(date);
-    }
-        
     @Before
     public void setUp()
     {
@@ -182,8 +164,8 @@ public class OSMReaderTest
         assertNotNull(graph.getProperties().get("osmreader.import.date"));
         assertNotEquals("", graph.getProperties().get("osmreader.import.date"));
 
-        assertEquals(convertUtcDateTimeToLocalDateTimeFormat(hopper,"2013-01-02T01:10:14Z"), graph.getProperties().get("osmreader.data.date"));
-        
+        assertEquals("2013-01-02T01:10:14Z", graph.getProperties().get("osmreader.data.date"));
+
         assertEquals(4, graph.getNodes());
         int n20 = AbstractGraphStorageTester.getIdOf(graph, 52);
         int n10 = AbstractGraphStorageTester.getIdOf(graph, 51.2492152);
@@ -297,8 +279,8 @@ public class OSMReaderTest
     {
         GraphHopper hopper = new GraphHopperTest(file2).importOrLoad();
         GraphHopperStorage graph = hopper.getGraphHopperStorage();
-        
-        assertEquals(convertUtcDateTimeToLocalDateTimeFormat(hopper,"2014-01-02T01:10:14Z"), graph.getProperties().get("osmreader.data.date"));
+                              
+        assertEquals("2014-01-02T01:10:14Z", graph.getProperties().get("osmreader.data.date"));
 
         int n20 = AbstractGraphStorageTester.getIdOf(graph, 52.0);
         int n22 = AbstractGraphStorageTester.getIdOf(graph, 52.133);
@@ -830,29 +812,28 @@ public class OSMReaderTest
     @Test
     public void testPreferredLanguage()
     {
-    	GraphHopper hopper = new GraphHopperTest(file1).setPreferredLanguage("de").importOrLoad();
-    	GraphHopperStorage graph = hopper.getGraphHopperStorage();
-    	int n20 = AbstractGraphStorageTester.getIdOf(graph, 52);
-    	EdgeIterator iter = carOutExplorer.setBaseNode(n20);
-    	assertTrue(iter.next());
-    	assertEquals("straße 123, B 122", iter.getName());
+        GraphHopper hopper = new GraphHopperTest(file1).setPreferredLanguage("de").importOrLoad();
+        GraphHopperStorage graph = hopper.getGraphHopperStorage();
+        int n20 = AbstractGraphStorageTester.getIdOf(graph, 52);
+        EdgeIterator iter = carOutExplorer.setBaseNode(n20);
+        assertTrue(iter.next());
+        assertEquals("straße 123, B 122", iter.getName());
 
-    	hopper = new GraphHopperTest(file1).setPreferredLanguage("el").importOrLoad();
-    	graph = hopper.getGraphHopperStorage();
-    	n20 = AbstractGraphStorageTester.getIdOf(graph, 52);
-    	iter = carOutExplorer.setBaseNode(n20);
-    	assertTrue(iter.next());
-    	assertTrue(iter.next());
-    	assertEquals("διαδρομή 666", iter.getName());
+        hopper = new GraphHopperTest(file1).setPreferredLanguage("el").importOrLoad();
+        graph = hopper.getGraphHopperStorage();
+        n20 = AbstractGraphStorageTester.getIdOf(graph, 52);
+        iter = carOutExplorer.setBaseNode(n20);
+        assertTrue(iter.next());
+        assertTrue(iter.next());
+        assertEquals("διαδρομή 666", iter.getName());
     }
-    
+
     @Test
     public void testDataDateWithinPBF()
     {
         GraphHopper hopper = new GraphHopperTest(file6).importOrLoad();
         GraphHopperStorage graph = hopper.getGraphHopperStorage();
-        
-        assertEquals(convertUtcDateTimeToLocalDateTimeFormat(hopper,"2014-01-02T00:10:14Z"), graph.getProperties().get("osmreader.data.date"));
+
+        assertEquals("2014-01-02T00:10:14Z", graph.getProperties().get("osmreader.data.date"));
     }
-    
 }
