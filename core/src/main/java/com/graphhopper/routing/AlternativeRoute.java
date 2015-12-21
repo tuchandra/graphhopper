@@ -36,14 +36,17 @@ import gnu.trove.procedure.TIntObjectProcedure;
  * "penalty" method discribed in the following papers.
  * <p/>
  * <ul>
- * <li>Choice Routing Explanation - Camvit
+ * <li>Choice Routing Explanation - Camvit 2009:
  * http://www.camvit.com/camvit-technical-english/Camvit-Choice-Routing-Explanation-english.pdf</li>
- * <li>and refined in: Alternative Routes in Road Networks
+ * <li>and refined in: Alternative Routes in Road Networks 2010:
  * http://www.cs.princeton.edu/~rwerneck/papers/ADGW10-alternatives-sea.pdf</li>
  * <li>other ideas 'Improved Alternative Route Planning', 2013:
  * https://hal.inria.fr/hal-00871739/document</li>
  * <li>via point 'storage' idea 'Candidate Sets for Alternative Routes in Road Networks', 2013:
  * https://algo2.iti.kit.edu/download/s-csarrn-12.pdf</li>
+ * <li>Alternative route graph construction 2011:
+ * http://algo2.iti.kit.edu/download/altgraph_tapas_extended.pdf
+ * </li>
  * </ul>
  * <p/>
  *
@@ -102,13 +105,14 @@ public class AlternativeRoute implements RoutingAlgorithm
      */
     public List<AlternativeInfo> calcAlternatives( int from, int to )
     {
-        // TODO 
-        // maxShare a number between 0 and 1, where 0 means no similarity is accepted and 1 means
-        // even different paths with identical weight are accepted        
         AltDijkstraBidirectionRef altBidirDijktra = new AltDijkstraBidirectionRef(graph, flagEncoder, weighting, traversalMode);
         altBidirDijktra.searchBest(from, to);
+        altBidirDijktra.setWeightLimit(weightLimit);
         visitedNodes = altBidirDijktra.getVisitedNodes();
 
+        // TODO 
+        // maxShare a number between 0 and 1, where 0 means no similarity is accepted and 1 means
+        // even different paths with identical weight are accepted                
         List<AlternativeInfo> alternatives = altBidirDijktra.calcAlternatives(maxPaths, maxWeightFactor, 2, 0.1);
         for (AlternativeInfo a : alternatives)
         {

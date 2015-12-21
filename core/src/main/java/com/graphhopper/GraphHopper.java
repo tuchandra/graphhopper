@@ -1073,7 +1073,7 @@ public class GraphHopper implements GraphHopperAPI
         // Every alternative path makes one AltResponse BUT if via points exists then reuse the altResponse object
         AltResponse altResponse = new AltResponse();
         ghRsp.addAlternative(altResponse);
-        boolean alternativeRoutes = AlgorithmOptions.ALT_ROUTE.equalsIgnoreCase(algoOpts.getAlgorithm());      
+        boolean alternativeRoutes = AlgorithmOptions.ALT_ROUTE.equalsIgnoreCase(algoOpts.getAlgorithm());
 
         for (int placeIndex = 1; placeIndex < points.size(); placeIndex++)
         {
@@ -1105,7 +1105,9 @@ public class GraphHopper implements GraphHopperAPI
             sw = new StopWatch().start();
             List<Path> pathList = algo.calcPaths(fromQResult.getClosestNode(), toQResult.getClosestNode());
             debug += ", " + algo.getName() + "-routing:" + sw.stop().getSeconds() + "s";
-
+            if (pathList.isEmpty())
+                throw new IllegalStateException("At least one path has to be returned for " + fromQResult + " -> " + toQResult);
+            
             for (Path path : pathList)
             {
                 if (path.getTime() < 0)
