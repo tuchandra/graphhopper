@@ -5,7 +5,7 @@ mvn clean test verify
 
 cd $HOME/../../web
 
-sudo chown -R $USER ~/.npm
+#sudo chown -R $USER ~/.npm
 npm install
 npm test && npm run lint
 
