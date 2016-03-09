@@ -53,8 +53,12 @@ public class RoutingExample {
             laT = Float.valueOf(vals[3]);
             inputPoints.add(new float[] {laF, loF, laT, loT});
         }
-        int numPairs = inputPoints.size();
+        int numPairs = inputPoints.size() - 4;
         System.out.println(numPairs + " origin-destination pairs.");
+        inputPoints.remove(484);
+        inputPoints.remove(436);
+        inputPoints.remove(208);
+        inputPoints.remove(206);
 
         // now this can take minutes if it imports or a few seconds for loading
         // of course this is dependent on the area you import
@@ -88,7 +92,6 @@ public class RoutingExample {
             InstructionList il = path.getInstructions();
             int numDirections = il.getSize();
             System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInMs / 1000 / 60 + "min;\t# Directions: " + numDirections);
-
             // iterate over every turn instruction
             //for(Instruction instruction : il) {
             //    System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
