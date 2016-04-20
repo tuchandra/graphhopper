@@ -34,14 +34,16 @@ public class RoutingExample {
         hopper.setGraphHopperLocation(graphFolder);
         hopper.setEncodingManager(new EncodingManager("car"));
 
-        String inputPointsFN = "../../data/sample_origin_destination_sanfran.csv";
-        String outputPointsFN = "../../data/sample_sanfran_directions_gh_basic.csv";
+        String inputPointsFN = "../../data/sample_origin_destination_sanfran_id.csv";
+        String outputPointsFN = "../../data/sample_sanfran_directions_gh_id.csv";
         ArrayList<float[]> inputPoints = new ArrayList<float[]>();
+        ArrayList<String> id_to_points = new ArrayList<String>();
         Scanner sc_in = new Scanner(new File(inputPointsFN));
         FileWriter sc_out = new FileWriter(outputPointsFN, true);
-        sc_out.write("overview_polyline_points,total_time_in_sec,total_distance_in_meters,waypoints,number_of_steps,maneuvers" +
+        sc_out.write("ID,overview_polyline_points,total_time_in_sec,total_distance_in_meters,waypoints,number_of_steps,maneuvers" +
                 System.getProperty("line.separator"));
         String header = sc_in.nextLine();
+        String od_id;
         float laF;
         float loF;
         float laT;
@@ -52,17 +54,14 @@ public class RoutingExample {
             idx = idx + 1;
             String line = sc_in.nextLine();
             String[] vals = line.split(",");
-            loF = Float.valueOf(vals[0]);
-            laF = Float.valueOf(vals[1]);
-            loT = Float.valueOf(vals[2]);
-            laT = Float.valueOf(vals[3]);
+            od_id = vals[0];
+            loF = Float.valueOf(vals[1]);
+            laF = Float.valueOf(vals[2]);
+            loT = Float.valueOf(vals[3]);
+            laT = Float.valueOf(vals[4]);
             inputPoints.add(new float[]{laF, loF, laT, loT, idx});
+            id_to_points.add(od_id);
         }
-        HashMap<Integer, Boolean> pointsToSkip = new HashMap<Integer, Boolean>();
-        pointsToSkip.put(484, true);
-        pointsToSkip.put(436, true);
-        pointsToSkip.put(208, true);
-        pointsToSkip.put(206, true);
         int numPairs = inputPoints.size();
         System.out.println(numPairs + " origin-destination pairs.");
 
@@ -74,14 +73,10 @@ public class RoutingExample {
         float[] points;
         PointList pointList = null;
         List<Map<String, Object>> iList = null;
+        int routes_skipped = 0;
         for (int i=0; i<numPairs; i++) {
             points = inputPoints.get(i);
-            if (pointsToSkip.containsKey(i)) {
-                System.out.println(i + ": Skipping.");
-                sc_out.write("\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3] + ")]\"," +
-                        "-1,-1,[],-1,[]" + System.getProperty("line.separator"));
-                continue;
-            }
+            od_id = id_to_points.get(i);
             GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                     setWeighting("fastest").
                     setVehicle("car").
@@ -91,8 +86,12 @@ public class RoutingExample {
             // first check for errors
             if (rsp.hasErrors()) {
                 // handle them!
-                rsp.getErrors();
-                return;
+                System.out.println(rsp.getErrors().toString());
+                System.out.println(i + ": Skipping.");
+                sc_out.write(od_id + "," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
+                        + ")]\"," + "-1,-1,[],-1,[]" + System.getProperty("line.separator"));
+                routes_skipped++;
+                continue;
             }
 
             // use the best path, see the GHResponse class for more possibilities.
@@ -104,7 +103,7 @@ public class RoutingExample {
             long timeInSec = path.getTime() / 1000;
             InstructionList il = path.getInstructions();
             int numDirections = il.getSize();
-            sc_out.write("\"[" + pointList + "]\"," + timeInSec + "," + distance + ",[]," + numDirections +
+            sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + ",[]," + numDirections +
                     ",[]" + System.getProperty("line.separator"));
             System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
             // iterate over every turn instruction
@@ -122,6 +121,7 @@ public class RoutingExample {
         }
         // example JSON
         System.out.println("Example JSON: " + iList);
+        System.out.println(routes_skipped + " routes skipped out of " + numPairs);
         sc_out.close();
     }
 }

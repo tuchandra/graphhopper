@@ -22,7 +22,10 @@ public class GHAltRouting extends GraphHopper {
     {
         String weighting = wMap.getWeighting();
         if ("SCENIC".equalsIgnoreCase(weighting)) {
-            return new ScenicWeighting(encoder, scenicEdges)
+            return new ScenicWeighting(encoder, scenicEdges);
+        }
+        else {
+            return super.createWeighting(wMap, encoder);
         }
     }
 }
