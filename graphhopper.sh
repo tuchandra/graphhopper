@@ -1,4 +1,6 @@
 #!/bin/bash
+(set -o igncr) 2>/dev/null && set -o igncr; # this comment is required for handling Windows cr/lf 
+# See StackOverflow answer http://stackoverflow.com/a/14607651
 
 GH_CLASS=com.graphhopper.tools.Import
 GH_HOME=$(dirname "$0")
@@ -29,12 +31,12 @@ function printUsage {
  echo
  echo "  help        this message"
  echo "  import      creates the graphhopper files used for later (faster) starts"
- echo "  web         starts a local server for user access at localhost:8989 and developer access at localhost:8989/route"
+ echo "  web         starts a local server for user access at localhost:8989 and API access at localhost:8989/route"
  echo "  build       creates the graphhopper JAR (without the web module)"
  echo "  clean       removes all JARs, necessary if you need to use the latest source (e.g. after switching the branch etc)"
  echo "  measurement does performance analysis of the current source version via artificial, random routes (Measurement class)"
  echo "  torture     can be used to test real world routes via feeding graphhopper logs into a graphhopper system (Torture class)"
- echo "  miniui      is a simple Java/Swing application used for debugging purposes only (MiniGraphUI class)"
+ echo "  miniui      is a simple Java/Swing visualization application used for debugging purposes (MiniGraphUI class)"
  echo "  extract     calls the overpass API to easily grab any area as .osm file"
 }
 
@@ -86,8 +88,8 @@ function ensureMaven {
       if [ ! -f "$MAVEN_HOME/bin/mvn" ]; then
         echo "No Maven found in the PATH. Now downloading+installing it to $MAVEN_HOME"
         cd "$GH_HOME"
-        MVN_PACKAGE=apache-maven-3.2.5
-        wget -O maven.zip http://archive.apache.org/dist/maven/maven-3/3.2.5/binaries/$MVN_PACKAGE-bin.zip
+        MVN_PACKAGE=apache-maven-3.3.9
+        wget -O maven.zip http://archive.apache.org/dist/maven/maven-3/3.3.9/binaries/$MVN_PACKAGE-bin.zip
         unzip maven.zip
         mv $MVN_PACKAGE maven
         rm maven.zip
@@ -133,6 +135,7 @@ function prepareEclipse {
 
 ## now handle actions which do not take an OSM file
 if [ "$ACTION" = "clean" ]; then
+ rm -rf ./android/app/target
  rm -rf ./*/target
  rm -rf ./target
  exit
@@ -232,12 +235,12 @@ if [ "$ACTION" = "ui" ] || [ "$ACTION" = "web" ]; then
   if [ "$GH_FOREGROUND" = "" ]; then
     exec "$JAVA" $JAVA_OPTS -jar "$WEB_JAR" jetty.resourcebase=$RC_BASE \
 	jetty.port=$JETTY_PORT jetty.host=$JETTY_HOST \
-    	config=$CONFIG $GH_WEB_OPTS graph.location="$GRAPH" osmreader.osm="$OSM_FILE"
+    	config=$CONFIG $GH_WEB_OPTS graph.location="$GRAPH" datareader.file="$OSM_FILE"
     # foreground => we never reach this here
   else
     exec "$JAVA" $JAVA_OPTS -jar "$WEB_JAR" jetty.resourcebase=$RC_BASE \
     	jetty.port=$JETTY_PORT jetty.host=$JETTY_HOST \
-    	config=$CONFIG $GH_WEB_OPTS graph.location="$GRAPH" osmreader.osm="$OSM_FILE" <&- &
+    	config=$CONFIG $GH_WEB_OPTS graph.location="$GRAPH" datareader.file="$OSM_FILE" <&- &
     if [ "$GH_PID_FILE" != "" ]; then
        echo $! > $GH_PID_FILE
     fi
@@ -246,35 +249,35 @@ if [ "$ACTION" = "ui" ] || [ "$ACTION" = "web" ]; then
 
 elif [ "$ACTION" = "import" ]; then
  "$JAVA" $JAVA_OPTS -cp "$JAR" $GH_CLASS config=$CONFIG \
-      $GH_IMPORT_OPTS graph.location="$GRAPH" osmreader.osm="$OSM_FILE"
+      $GH_IMPORT_OPTS graph.location="$GRAPH" datareader.file="$OSM_FILE"
 
 
 elif [ "$ACTION" = "torture" ]; then
- "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.tools.QueryTorture $3 $4 $5 $6 $7 $8 $9
+ "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.tools.QueryTorture $@
 
 
 elif [ "$ACTION" = "miniui" ]; then
  "$MAVEN_HOME/bin/mvn" --projects tools -DskipTests clean install assembly:single
  JAR=tools/target/graphhopper-tools-$VERSION-jar-with-dependencies.jar   
- "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.ui.MiniGraphUI osmreader.osm="$OSM_FILE" config=$CONFIG \
+ "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.ui.MiniGraphUI datareader.file="$OSM_FILE" config=$CONFIG \
               graph.location="$GRAPH"
 
 
 elif [ "$ACTION" = "measurement" ]; then
- ARGS="config=$CONFIG graph.location=$GRAPH osmreader.osm=$OSM_FILE prepare.chWeighting=fastest graph.flagEncoders=CAR"
- echo -e "\ncreate graph via $ARGS, $JAR"
- START=$(date +%s)
+ ARGS="config=$CONFIG graph.location=$GRAPH datareader.file=$OSM_FILE prepare.ch.weightings=fastest graph.flag_encoders=car prepare.min_network_size=10000 prepare.min_oneway_network_size=10000"
+ # echo -e "\ncreate graph via $ARGS, $JAR"
+ # START=$(date +%s)
  # avoid islands for measurement at all costs
- "$JAVA" $JAVA_OPTS -cp "$JAR" $GH_CLASS $ARGS prepare.doPrepare=false prepare.minNetworkSize=10000 prepare.minOnewayNetworkSize=10000
- END=$(date +%s)
- IMPORT_TIME=$(($END - $START))
+ # "$JAVA" $JAVA_OPTS -cp "$JAR" $GH_CLASS $ARGS prepare.doPrepare=false prepare.minNetworkSize=10000 prepare.minOnewayNetworkSize=10000
+ # END=$(date +%s)
+ # IMPORT_TIME=$(($END - $START))
 
  function startMeasurement {
     COUNT=5000
     commit_info=$(git log -n 1 --pretty=oneline)
     echo -e "\nperform measurement via jar=> $JAR and ARGS=> $ARGS"
     "$JAVA" $JAVA_OPTS -cp "$JAR" com.graphhopper.tools.Measurement $ARGS measurement.count=$COUNT measurement.location="$M_FILE_NAME" \
-            graph.importTime=$IMPORT_TIME measurement.gitinfo="$commit_info"
+            measurement.gitinfo="$commit_info"
  }
  
  
