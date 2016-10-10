@@ -2,8 +2,8 @@ package com.graphhopper;
 
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.ScenicWeighting;
-import com.graphhopper.routing.util.Weighting;
-import com.graphhopper.routing.util.WeightingMap;
+import com.graphhopper.routing.weighting.Weighting;
+import com.graphhopper.routing.util.HintsMap;
 
 import java.util.HashMap;
 
@@ -18,7 +18,7 @@ public class GHAltRouting extends GraphHopper {
     }
 
     @Override
-    public Weighting createWeighting( WeightingMap wMap, FlagEncoder encoder)
+    public Weighting createWeighting( HintsMap wMap, FlagEncoder encoder)
     {
         String weighting = wMap.getWeighting();
         if ("SCENIC".equalsIgnoreCase(weighting)) {

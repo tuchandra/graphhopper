@@ -1,5 +1,9 @@
-package com.graphhopper;
+package com.graphhopper.reader.osm;
 
+import com.graphhopper.GHRequest;
+import com.graphhopper.GHResponse;
+import com.graphhopper.GraphHopper;
+import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.*;
 
@@ -7,14 +11,15 @@ import java.util.*;
 
 import java.io.*;
 
+
 /**
  * Created by isaac on 3/8/16.
  */
 public class RoutingExample {
 
     // PBF from: https://mapzen.com/data/metro-extracts/
-    private static final String osmFile = "./files/san-francisco-bay_california.osm.pbf";
-    private static final String graphFolder = "./target/tmp/ghosm";
+    private static final String osmFile = "./reader-osm/files/san-francisco-bay_california.osm.pbf";
+    private static final String graphFolder = "./reader-osm/target/tmp/ghosm";
 
     private static final TranslationMap trMap = new TranslationMap().doImport();
     private static final Translation usTR = trMap.getWithFallBack(Locale.US);
@@ -28,19 +33,20 @@ public class RoutingExample {
     public static void main(String[] args) throws Exception {
         // create one GraphHopper instance
         System.out.println(usTR);
-        GraphHopper hopper = new GraphHopper().forDesktop();
-        hopper.setOSMFile(osmFile);
+//        GraphHopper hopper = new GraphHopper().forDesktop();
+        GraphHopper hopper = new GraphHopperOSM().forDesktop();
+        hopper.setDataReaderFile(osmFile);
         // where to store graphhopper files?
         hopper.setGraphHopperLocation(graphFolder);
         hopper.setEncodingManager(new EncodingManager("car"));
 
-        String inputPointsFN = "../../data/sample_origin_destination_sanfran_id.csv";
-        String outputPointsFN = "../../data/sample_sanfran_directions_gh_id.csv";
+        String inputPointsFN = "../data/output/sf_grid_od_pairs.csv";
+        String outputPointsFN = "../data/output/sf_grid_ghshort_routes.csv";
         ArrayList<float[]> inputPoints = new ArrayList<float[]>();
         ArrayList<String> id_to_points = new ArrayList<String>();
         Scanner sc_in = new Scanner(new File(inputPointsFN));
         FileWriter sc_out = new FileWriter(outputPointsFN, true);
-        sc_out.write("ID,overview_polyline_points,total_time_in_sec,total_distance_in_meters,waypoints,number_of_steps,maneuvers" +
+        sc_out.write("ID,polyline_points,total_time_in_sec,total_distance_in_meters,number_of_steps,maneuvers" +
                 System.getProperty("line.separator"));
         String header = sc_in.nextLine();
         String od_id;

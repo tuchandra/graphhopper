@@ -1,5 +1,6 @@
 package com.graphhopper.routing.util;
 
+import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.util.EdgeIteratorState;
 
 import java.util.HashMap;
@@ -29,9 +30,8 @@ public class ScenicWeighting implements Weighting {
     }
 
     @Override
-    public boolean matches( String weightingAsStr, FlagEncoder encoder )
-    {
-        return getName().equals(weightingAsStr) && encoder == encoder;
+    public long calcMillis(EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId) {
+        return -1l;
     }
 
     @Override
@@ -47,6 +47,11 @@ public class ScenicWeighting implements Weighting {
     @Override
     public String getName() {
         return "SCENIC";
+    }
+
+    @Override
+    public boolean matches(HintsMap map) {
+        return true;
     }
 
 }
