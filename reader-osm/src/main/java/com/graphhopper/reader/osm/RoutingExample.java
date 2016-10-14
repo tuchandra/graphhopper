@@ -36,13 +36,13 @@ public class RoutingExample {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes.csv";
+            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes_TEST.csv";
         } else {
             return;
         }
 
         // create one GraphHopper instance
-        GraphHopper hopper = new GraphHopperOSM().forDesktop();
+        GraphHopper hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
         hopper.setDataReaderFile(osmFile);
         // where to store graphhopper files?
         hopper.setGraphHopperLocation(graphFolder);
@@ -93,7 +93,8 @@ public class RoutingExample {
             GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                     setWeighting("fastest").
                     setVehicle("car").
-                    setLocale(Locale.US);
+                    setLocale(Locale.US).
+                    setAlgorithm("dijkstra");
             GHResponse rsp = hopper.route(req);
 
             // first check for errors
@@ -146,10 +147,10 @@ public class RoutingExample {
         // NYC Grid
         process_routes("NYC", "grid");
         // NYC Random
-        process_routes("NYC", "rand");
+        //process_routes("NYC", "rand");
         // SF Grid
-        process_routes("SF", "grid");
+        //process_routes("SF", "grid");
         // SF Random
-        process_routes("SF", "rand");
+        //process_routes("SF", "rand");
     }
 }

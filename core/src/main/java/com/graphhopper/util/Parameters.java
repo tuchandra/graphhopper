@@ -56,6 +56,10 @@ public class Parameters {
          * round trip algorithm (not yet for CH)
          */
         public static final String ROUND_TRIP = "round_trip";
+        /**
+         * k-shortest paths (Dijkstra)
+         */
+        public static final String KSP = "ksp";
 
         /**
          * All public properties for alternative routing.
