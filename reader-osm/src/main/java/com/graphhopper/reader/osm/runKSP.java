@@ -15,7 +15,7 @@ import java.io.*;
 /**
  * Created by isaac on 3/8/16.
  */
-public class RoutingExample {
+public class runKSP {
 
     private static final TranslationMap trMap = new TranslationMap().doImport();
     private static final Translation usTR = trMap.getWithFallBack(Locale.US);
@@ -94,8 +94,9 @@ public class RoutingExample {
                     setWeighting("fastest").
                     setVehicle("car").
                     setLocale(Locale.US).
-                    setAlgorithm("dijkstra");
+                    setAlgorithm("ksp");
             GHResponse rsp = hopper.route(req);
+            System.out.println("Num Responses: " + rsp.getAll().size());
 
             // first check for errors
             if (rsp.hasErrors()) {
@@ -109,23 +110,26 @@ public class RoutingExample {
             }
 
             // use the best path, see the GHResponse class for more possibilities.
-            PathWrapper path = rsp.getBest();
+            List<PathWrapper> paths = rsp.getAll();
+            for (PathWrapper path : paths) {
 
-            // points, distance in meters and time in seconds (convert from ms) of the full path
-            pointList = path.getPoints();
-            double distance = Math.round(path.getDistance()*100) / 100;
-            long timeInSec = path.getTime() / 1000;
-            InstructionList il = path.getInstructions();
-            int numDirections = il.getSize();
-            // iterate over every turn instruction
-            maneuvers.clear();
-            for (Instruction instruction : il) {
-                maneuvers.add(instruction.getSimpleTurnDescription());
-                // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
+                // points, distance in meters and time in seconds (convert from ms) of the full path
+                pointList = path.getPoints();
+                double distance = Math.round(path.getDistance() * 100) / 100;
+                long timeInSec = path.getTime() / 1000;
+                InstructionList il = path.getInstructions();
+                int numDirections = il.getSize();
+                // iterate over every turn instruction
+                maneuvers.clear();
+                for (Instruction instruction : il) {
+                    maneuvers.add(instruction.getSimpleTurnDescription());
+                    // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
+                }
+                sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
+                        "," + maneuvers.toString() + System.getProperty("line.separator"));
+                System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
             }
-            sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
-                    "," + maneuvers.toString() + System.getProperty("line.separator"));
-            System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
+            break;
 
             // or get the json
             //iList = il.createJson();

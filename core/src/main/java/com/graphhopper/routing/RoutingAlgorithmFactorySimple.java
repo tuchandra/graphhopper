@@ -65,6 +65,8 @@ public class RoutingAlgorithmFactorySimple implements RoutingAlgorithmFactory {
             altRouteAlgo.setMaxExplorationFactor(opts.getHints().getDouble("alternative_route.max_exploration_factor", 1));
             ra = altRouteAlgo;
 
+        } else if (KSP.equalsIgnoreCase(algoStr)) {
+            ra = new KSP(g, opts.getWeighting(), opts.getTraversalMode());
         } else {
             throw new IllegalArgumentException("Algorithm " + algoStr + " not found in " + getClass().getName());
         }

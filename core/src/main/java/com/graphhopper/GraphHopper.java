@@ -990,7 +990,7 @@ public class GraphHopper implements GraphHopperAPI {
             RoutingTemplate routingTemplate;
             if (ROUND_TRIP.equalsIgnoreCase(algoStr))
                 routingTemplate = new RoundTripRoutingTemplate(request, ghRsp, locationIndex, maxRoundTripRetries);
-            else if (ALT_ROUTE.equalsIgnoreCase(algoStr))
+            else if (ALT_ROUTE.equalsIgnoreCase(algoStr) || KSP.equalsIgnoreCase(algoStr))
                 routingTemplate = new AlternativeRoutingTemplate(request, ghRsp, locationIndex);
             else
                 routingTemplate = new ViaRoutingTemplate(request, ghRsp, locationIndex);
