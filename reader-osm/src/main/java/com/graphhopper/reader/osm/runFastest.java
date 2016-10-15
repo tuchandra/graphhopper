@@ -20,7 +20,7 @@ public class runFastest {
     private static final TranslationMap trMap = new TranslationMap().doImport();
     private static final Translation usTR = trMap.getWithFallBack(Locale.US);
 
-    public static void process_routes(String city, String route_type) throws Exception {
+    public static void process_routes(String city, String route_type, boolean useCH) throws Exception {
 
         // set paths
         String osmFile = "./reader-osm/files/";
@@ -36,13 +36,16 @@ public class runFastest {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes_TEST.csv";
+            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes.csv";
         } else {
             return;
         }
+        if (useCH) {
+            graphFolder = graphFolder + "_noch";
+        }
 
         // create one GraphHopper instance
-        GraphHopper hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
+        GraphHopper hopper = new GraphHopperOSM().forDesktop().setCHEnabled(useCH);
         hopper.setDataReaderFile(osmFile);
         // where to store graphhopper files?
         hopper.setGraphHopperLocation(graphFolder);
@@ -145,12 +148,12 @@ public class runFastest {
 
         // PBF from: https://mapzen.com/data/metro-extracts/
         // NYC Grid
-        process_routes("NYC", "grid");
+        process_routes("NYC", "grid", true);
         // NYC Random
-        //process_routes("NYC", "rand");
+        //process_routes("NYC", "rand", true);
         // SF Grid
-        //process_routes("SF", "grid");
+        //process_routes("SF", "grid", true);
         // SF Random
-        //process_routes("SF", "rand");
+        //process_routes("SF", "rand", true);
     }
 }

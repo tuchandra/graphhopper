@@ -13,14 +13,14 @@ import java.io.*;
 
 
 /**
- * Created by isaac on 3/8/16.
+ * Created by isaac on 09/14/16.
  */
 public class runKSP {
 
     private static final TranslationMap trMap = new TranslationMap().doImport();
     private static final Translation usTR = trMap.getWithFallBack(Locale.US);
 
-    public static void process_routes(String city, String route_type) throws Exception {
+    public static void process_routes(String city, String route_type, boolean useCH) throws Exception {
 
         // set paths
         String osmFile = "./reader-osm/files/";
@@ -31,14 +31,17 @@ public class runKSP {
             osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
             graphFolder = graphFolder + "ghosm_sf";
             inputPointsFN = inputPointsFN + "sf_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "sf_" + route_type + "_graphhopper_routes.csv";
+            outputPointsFN = outputPointsFN + "sf_" + route_type + "_graphhopper_routes_ksp.csv";
         } else if (city.equals("NYC")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes_TEST.csv";
+            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes_ksp.csv";
         } else {
             return;
+        }
+        if (useCH) {
+            graphFolder = graphFolder + "_noch";
         }
 
         // create one GraphHopper instance
@@ -149,12 +152,12 @@ public class runKSP {
 
         // PBF from: https://mapzen.com/data/metro-extracts/
         // NYC Grid
-        process_routes("NYC", "grid");
+        process_routes("NYC", "grid", true);
         // NYC Random
-        //process_routes("NYC", "rand");
+        //process_routes("NYC", "rand", true);
         // SF Grid
-        //process_routes("SF", "grid");
+        //process_routes("SF", "grid", true);
         // SF Random
-        //process_routes("SF", "rand");
+        //process_routes("SF", "rand", true);
     }
 }
