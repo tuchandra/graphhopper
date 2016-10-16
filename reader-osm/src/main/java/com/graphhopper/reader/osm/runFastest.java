@@ -127,7 +127,7 @@ public class runFastest {
                 // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
             }
             sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
-                    "," + maneuvers.toString() + System.getProperty("line.separator"));
+                    ",\"" + maneuvers.toString() +"\"" + System.getProperty("line.separator"));
             System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
 
             // or get the json
