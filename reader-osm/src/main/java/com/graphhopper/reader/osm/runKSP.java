@@ -25,25 +25,62 @@ public class runKSP {
         // set paths
         String osmFile = "./reader-osm/files/";
         String graphFolder = "./reader-osm/target/tmp/";
-        String inputPointsFN = "../data/output/";
+        String inputPointsFN = "../data/intermediate/";
         String outputPointsFN = "../data/output/";
+        ArrayList<String> gridValuesFNs = new ArrayList<>();
+        String gvfnStem = "../data/intermediate/";
         if (city.equals("SF")) {
             osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
             graphFolder = graphFolder + "ghosm_sf";
             inputPointsFN = inputPointsFN + "sf_" + route_type + "_od_pairs.csv";
             outputPointsFN = outputPointsFN + "sf_" + route_type + "_graphhopper_routes_ksp.csv";
+            gridValuesFNs.add(gvfnStem + "06075_beauty_flickr.csv");
         } else if (city.equals("NYC")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
             outputPointsFN = outputPointsFN + "nyc_" + route_type + "_graphhopper_routes_ksp.csv";
+            gridValuesFNs.add(gvfnStem + "36005_beauty_flickr.csv");
+            gridValuesFNs.add(gvfnStem + "36047_beauty_flickr.csv");
+            gridValuesFNs.add(gvfnStem + "36061_beauty_flickr.csv");
+            gridValuesFNs.add(gvfnStem + "36081_beauty_flickr.csv");
+            gridValuesFNs.add(gvfnStem + "36085_beauty_flickr.csv");
+        } else if (city.equals("BOS")) {
+            osmFile = osmFile + "boston_massachusetts.osm.pbf";
+            graphFolder = graphFolder + "ghosm_bos";
+            inputPointsFN = inputPointsFN + "bos_" + route_type + "_od_pairs.csv";
+            outputPointsFN = outputPointsFN + "bos_" + route_type + "_graphhopper_routes_ksp.csv";
+            gridValuesFNs.add(gvfnStem + "25025_beauty_twitter.csv");
         } else {
             return;
         }
-        if (useCH) {
+        if (!useCH) {
             graphFolder = graphFolder + "_noch";
         }
 
+        HashMap<String, Integer> gvHeaderMap = new HashMap<>();
+        HashMap<String, Float> gridBeauty = new HashMap<>();
+        for (String fn : gridValuesFNs) {
+            Scanner sc_in = new Scanner(new File(fn));
+            String[] gvHeader = sc_in.nextLine().split(",");
+            int i = 0;
+            for (String col : gvHeader) {
+                gvHeaderMap.put(col, i);
+                i++;
+            }
+            String line;
+            String[] vals;
+            String rc;
+            float beauty;
+            while (sc_in.hasNext()) {
+                line = sc_in.nextLine();
+                vals = line.split(",");
+                rc = vals[gvHeaderMap.get("rid")] + "," + vals[gvHeaderMap.get("cid")];
+                beauty = Float.valueOf(vals[gvHeaderMap.get("beauty")]);
+                gridBeauty.put(rc, beauty);
+            }
+
+        }
         // create one GraphHopper instance
         GraphHopper hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
         hopper.setDataReaderFile(osmFile);
@@ -114,28 +151,45 @@ public class runKSP {
 
             // use the best path, see the GHResponse class for more possibilities.
             List<PathWrapper> paths = rsp.getAll();
-            for (PathWrapper path : paths) {
-
-                // points, distance in meters and time in seconds (convert from ms) of the full path
-                pointList = path.getPoints();
-                double distance = Math.round(path.getDistance() * 100) / 100;
-                long timeInSec = path.getTime() / 1000;
-                InstructionList il = path.getInstructions();
-                int numDirections = il.getSize();
-                // iterate over every turn instruction
-                maneuvers.clear();
-                for (Instruction instruction : il) {
-                    maneuvers.add(instruction.getSimpleTurnDescription());
-                    // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
+            HashSet<String> roundedPoints;
+            int j = 0;
+            float maxscore = -1000;
+            int maxidx = 0;
+            for (PathWrapper path: paths) {
+                roundedPoints = path.roundPoints();
+                float score = 0;
+                for (String pt : roundedPoints) {
+                    if (gridBeauty.containsKey(pt)) {
+                        score = score + gridBeauty.get(pt);
+                    }
                 }
-                sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
-                        ",\"" + maneuvers.toString() + "\"" + System.getProperty("line.separator"));
-                System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
+                score = score / roundedPoints.size();
+                if (score > maxscore) {
+                    maxscore = score;
+                    maxidx = j;
+                }
+                j++;
             }
-            break;
+            PathWrapper bestPath = paths.get(maxidx);
+            // points, distance in meters and time in seconds (convert from ms) of the full path
+            pointList = bestPath.getPoints();
+            double distance = Math.round(bestPath.getDistance() * 100) / 100;
+            long timeInSec = bestPath.getTime() / 1000;
+            InstructionList il = bestPath.getInstructions();
+            int numDirections = il.getSize();
+            // iterate over every turn instruction
+            maneuvers.clear();
+            for (Instruction instruction : il) {
+                maneuvers.add(instruction.getSimpleTurnDescription());
+                // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
+            }
+            sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
+                    ",\"" + maneuvers.toString() + "\"" + System.getProperty("line.separator"));
+
+            System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
 
             // or get the json
-            //iList = il.createJson();
+            iList = il.createJson();
             //System.out.println("JSON: " + iList);
 
             // or get the result as gpx entries:
@@ -152,12 +206,13 @@ public class runKSP {
 
         // PBF from: https://mapzen.com/data/metro-extracts/
         // NYC Grid
-        process_routes("NYC", "grid", true);
+        //process_routes("NYC", "grid", true);
         // NYC Random
         //process_routes("NYC", "rand", true);
         // SF Grid
         //process_routes("SF", "grid", true);
         // SF Random
         //process_routes("SF", "rand", true);
+        process_routes("BOS", "check", true);
     }
 }

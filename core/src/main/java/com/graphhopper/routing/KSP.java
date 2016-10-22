@@ -59,11 +59,11 @@ public class KSP implements RoutingAlgorithm {
     private final TraversalMode traversalMode;
     private int visitedNodes;
     private int maxVisitedNodes = Integer.MAX_VALUE;
-    private double maxWeightFactor = 2;  // time can be twice as long
+    private double maxWeightFactor = 10;  // time can be twice as long
     // the higher the maxWeightFactor the higher the explorationFactor needs to be
     // 1 is default for bidir Dijkstra, 0.8 seems to be a very similar value for bidir A* but roughly 1/2 of the nodes explored
-    private double maxExplorationFactor = 2;  //
-    private int maxPaths = 100;  // K
+    private double maxExplorationFactor = 10;  //
+    private int maxPaths = 100000;  // K
 
     public KSP(Graph graph, Weighting weighting, TraversalMode traversalMode) {
         this.graph = graph;

@@ -25,7 +25,7 @@ public class runFastest {
         // set paths
         String osmFile = "./reader-osm/files/";
         String graphFolder = "./reader-osm/target/tmp/";
-        String inputPointsFN = "../data/output/";
+        String inputPointsFN = "../data/intermediate/";
         String outputPointsFN = "../data/output/";
         if (city.equals("SF")) {
             osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
@@ -40,7 +40,7 @@ public class runFastest {
         } else {
             return;
         }
-        if (useCH) {
+        if (!useCH) {
             graphFolder = graphFolder + "_noch";
         }
 
@@ -96,8 +96,7 @@ public class runFastest {
             GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                     setWeighting("fastest").
                     setVehicle("car").
-                    setLocale(Locale.US).
-                    setAlgorithm("dijkstra");
+                    setLocale(Locale.US);
             GHResponse rsp = hopper.route(req);
 
             // first check for errors
@@ -150,10 +149,10 @@ public class runFastest {
         // NYC Grid
         process_routes("NYC", "grid", true);
         // NYC Random
-        //process_routes("NYC", "rand", true);
+        process_routes("NYC", "rand", true);
         // SF Grid
-        //process_routes("SF", "grid", true);
+        process_routes("SF", "grid", true);
         // SF Random
-        //process_routes("SF", "rand", true);
+        process_routes("SF", "rand", true);
     }
 }

@@ -20,10 +20,13 @@ package com.graphhopper;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.GHPoint3D;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
+
+import static java.lang.Math.round;
 
 /**
  * This class holds the data like points and instructions of a Path.
@@ -82,6 +85,19 @@ public class PathWrapper {
     public PointList getPoints() {
         check("getPoints");
         return pointList;
+    }
+
+    public HashSet<String> roundPoints() {
+        check("getPoints");
+        HashSet<String> roundedPoints = new HashSet<>();
+        long lon;
+        long lat;
+        for (GHPoint3D pt : pointList) {
+            lon = Math.round(pt.getLon() * 1000);
+            lat = Math.round(pt.getLat() * 1000);
+            roundedPoints.add(lat + "," + lon);
+        }
+        return roundedPoints;
     }
 
     public PathWrapper setPoints(PointList points) {
