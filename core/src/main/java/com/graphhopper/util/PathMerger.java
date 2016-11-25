@@ -65,6 +65,7 @@ public class PathMerger {
         double fullWeight = 0;
         double fullDistance = 0;
         boolean allFound = true;
+        int simplicity = 0;
 
         InstructionList fullInstructions = new InstructionList(tr);
         PointList fullPoints = PointList.EMPTY;
@@ -77,6 +78,8 @@ public class PathMerger {
             fullWeight += path.getWeight();
             if (enableInstructions) {
                 InstructionList il = path.calcInstructions(tr);
+                simplicity += path.getSimplicity();
+
 
                 if (!il.isEmpty()) {
                     if (fullPoints.isEmpty()) {
@@ -134,7 +137,8 @@ public class PathMerger {
                 setPoints(fullPoints).
                 setRouteWeight(fullWeight).
                 setDistance(fullDistance).
-                setTime(fullTimeInMillis);
+                setTime(fullTimeInMillis).
+                setSimplicity(simplicity);
     }
 
     private void calcAscendDescend(final PathWrapper rsp, final PointList pointList) {

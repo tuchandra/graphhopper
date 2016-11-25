@@ -7,9 +7,11 @@ import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.*;
 
+import java.awt.*;
 import java.util.*;
 
 import java.io.*;
+import java.util.List;
 
 
 /**
@@ -19,6 +21,7 @@ public class runKSP {
 
     private static final TranslationMap trMap = new TranslationMap().doImport();
     private static final Translation usTR = trMap.getWithFallBack(Locale.US);
+    private static final boolean outputAlternative = true;
 
     public static void process_routes(String city, String route_type, boolean useCH) throws Exception {
 
@@ -34,7 +37,7 @@ public class runKSP {
             graphFolder = graphFolder + "ghosm_sf";
             inputPointsFN = inputPointsFN + "sf_" + route_type + "_od_pairs.csv";
             outputPointsFN = outputPointsFN + "sf_" + route_type + "_graphhopper_routes_ksp.csv";
-            gridValuesFNs.add(gvfnStem + "06075_beauty_flickr.csv");
+            gridValuesFNs.add(gvfnStem + "06075_logfractionempath_flickr.csv");
         } else if (city.equals("NYC")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc";
@@ -95,6 +98,12 @@ public class runKSP {
         FileWriter sc_out = new FileWriter(outputPointsFN, true);
         sc_out.write("ID,polyline_points,total_time_in_sec,total_distance_in_meters,number_of_steps,maneuvers" +
                 System.getProperty("line.separator"));
+        FileWriter sc_out_alt;
+        if (outputAlternative) {
+            sc_out_alt = new FileWriter(outputPointsFN.replaceFirst(".csv","_alt.csv"), true);
+            sc_out_alt.write("ID,polyline_points,total_time_in_sec,total_distance_in_meters,number_of_steps,maneuvers" +
+                    System.getProperty("line.separator"));
+        }
         String header = sc_in.nextLine();
         String od_id;
         float laF;
@@ -125,7 +134,7 @@ public class runKSP {
         // simple configuration of the request object, see the GraphHopperServlet classs for more possibilities.
         float[] points;
         PointList pointList = null;
-        List<Map<String, Object>> iList = null;
+        //List<Map<String, Object>> iList = null;
         int routes_skipped = 0;
         for (int i=0; i<numPairs; i++) {
             points = inputPoints.get(i);
@@ -145,6 +154,10 @@ public class runKSP {
                 System.out.println(i + ": Skipping.");
                 sc_out.write(od_id + "," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
                         + ")]\"," + "-1,-1,-1,[]" + System.getProperty("line.separator"));
+                if (outputAlternative) {
+                    sc_out_alt.write(od_id + "," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
+                            + ")]\"," + "-1,-1,-1,[]" + System.getProperty("line.separator"));
+                }
                 routes_skipped++;
                 continue;
             }
@@ -170,6 +183,7 @@ public class runKSP {
                 }
                 j++;
             }
+
             PathWrapper bestPath = paths.get(maxidx);
             // points, distance in meters and time in seconds (convert from ms) of the full path
             pointList = bestPath.getPoints();
@@ -183,13 +197,58 @@ public class runKSP {
                 maneuvers.add(instruction.getSimpleTurnDescription());
                 // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
             }
+
             sc_out.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
                     ",\"" + maneuvers.toString() + "\"" + System.getProperty("line.separator"));
+            System.out.println(i + ": Distance: " + Math.round(paths.get(0).getDistance() * 100) / 100 + "m;\tTime: " + paths.get(0).getTime() / 1000 + "sec;\t# Directions: " + paths.get(0).getInstructions().getSize());
+            System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections + ";\tScore: " + maxscore);
 
-            System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections);
+            int k = 0;
+            int minidx = 0;
+            float minscore = 1000;
+            if (outputAlternative) {
+                double altdistance;
+                for (PathWrapper path: paths) {
+                    altdistance = path.getDistance();
+                    if (altdistance / distance > 1.05 || altdistance / distance < 0.95) {
+                        continue;
+                    }
+                    roundedPoints = path.roundPoints();
+                    float score = 0;
+                    for (String pt : roundedPoints) {
+                        if (gridBeauty.containsKey(pt)) {
+                            score = score + gridBeauty.get(pt);
+                        }
+                    }
+                    score = score / roundedPoints.size();
+                    if (score < minscore) {
+                        minscore = score;
+                        minidx = k;
+                    }
+                    k++;
+                }
+                bestPath = paths.get(minidx);
+                // points, distance in meters and time in seconds (convert from ms) of the full path
+                pointList = bestPath.getPoints();
+                distance = Math.round(bestPath.getDistance() * 100) / 100;
+                timeInSec = bestPath.getTime() / 1000;
+                il = bestPath.getInstructions();
+                numDirections = il.getSize();
+                // iterate over every turn instruction
+                maneuvers.clear();
+                for (Instruction instruction : il) {
+                    maneuvers.add(instruction.getSimpleTurnDescription());
+                    // System.out.println(instruction.getTurnDescription(usTR) + " for " + instruction.getDistance() + " meters.");
+                }
+                sc_out_alt.write(od_id + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
+                        ",\"" + maneuvers.toString() + "\"" + System.getProperty("line.separator"));
+                System.out.println(i + ": Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections + ";\tScore: " + minscore);
+
+            }
+            paths.clear();
 
             // or get the json
-            iList = il.createJson();
+            //iList = il.createJson();
             //System.out.println("JSON: " + iList);
 
             // or get the result as gpx entries:
@@ -210,9 +269,9 @@ public class runKSP {
         // NYC Random
         //process_routes("NYC", "rand", true);
         // SF Grid
-        //process_routes("SF", "grid", true);
+        process_routes("SF", "grid", false);
         // SF Random
         //process_routes("SF", "rand", true);
-        process_routes("BOS", "check", true);
+        //process_routes("BOS", "check", true);
     }
 }

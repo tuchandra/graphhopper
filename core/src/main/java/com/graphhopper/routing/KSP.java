@@ -63,7 +63,7 @@ public class KSP implements RoutingAlgorithm {
     // the higher the maxWeightFactor the higher the explorationFactor needs to be
     // 1 is default for bidir Dijkstra, 0.8 seems to be a very similar value for bidir A* but roughly 1/2 of the nodes explored
     private double maxExplorationFactor = 10;  //
-    private int maxPaths = 100000;  // K
+    private int maxPaths = 10000;  // K
 
     public KSP(Graph graph, Weighting weighting, TraversalMode traversalMode) {
         this.graph = graph;

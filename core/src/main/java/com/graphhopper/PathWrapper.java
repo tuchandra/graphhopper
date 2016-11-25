@@ -46,6 +46,7 @@ public class PathWrapper {
     private InstructionList instructions;
     private PointList waypointList = PointList.EMPTY;
     private PointList pointList = PointList.EMPTY;
+    private int simplicity = 0;
 
     /**
      * @return the description of this route alternative to make it meaningful for the user e.g. it
@@ -98,6 +99,14 @@ public class PathWrapper {
             roundedPoints.add(lat + "," + lon);
         }
         return roundedPoints;
+    }
+
+    public void setSimplicity(int sim) {
+        simplicity = sim;
+    }
+
+    public int getSimplicity() {
+        return simplicity;
     }
 
     public PathWrapper setPoints(PointList points) {

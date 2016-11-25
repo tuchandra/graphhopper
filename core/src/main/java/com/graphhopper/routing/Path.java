@@ -62,6 +62,7 @@ public class Path {
     private TIntList edgeIds;
     private double weight;
     private NodeAccess nodeAccess;
+    private int simplicity = 0;  // how simple is the path based on turns
 
     public Path(Graph graph, Weighting weighting) {
         this.weight = Double.MAX_VALUE;
@@ -95,6 +96,10 @@ public class Path {
     public Path setDescription(List<String> description) {
         this.description = description;
         return this;
+    }
+
+    public int getSimplicity() {
+        return simplicity;
     }
 
     public Path setSPTEntry(SPTEntry sptEntry) {
@@ -390,6 +395,8 @@ public class Path {
                 double adjLon = nodeAccess.getLongitude(adjNode);
                 double latitude, longitude;
 
+                simplicity += 1;
+
                 PointList wayGeo = edge.fetchWayGeometry(3);
                 boolean isRoundabout = encoder.isBool(flags, FlagEncoder.K_ROUNDABOUT);
 
@@ -416,6 +423,7 @@ public class Path {
 
                 } else if (isRoundabout) {
                     // remark: names and annotations within roundabout are ignored
+                    simplicity += 4;
                     if (!prevInRoundabout) //just entered roundabout
                     {
                         int sign = Instruction.USE_ROUNDABOUT;
@@ -428,6 +436,7 @@ public class Path {
                                 if ((edgeIter.getAdjNode() != prevNode)
                                         && !encoder.isBool(edgeIter.getFlags(), FlagEncoder.K_ROUNDABOUT)) {
                                     roundaboutInstruction.increaseExitNumber();
+                                    simplicity += 1;
                                     break;
                                 }
                             }
@@ -520,6 +529,17 @@ public class Path {
                     ways.add(prevInstruction);
                     prevName = name;
                     prevAnnotation = annotation;
+
+                    if (absDelta > 0.2) {
+                        //TODO: check if at T and just increment simplicity by 5
+                        EdgeIterator edgeIter = outEdgeExplorer.setBaseNode(adjNode);
+                        int countEdges = 4;
+                        while (edgeIter.next()) {
+                            edgeIter.getAdjNode();
+                            countEdges += 1;
+                        }
+                        simplicity += countEdges;
+                    }
                 }
 
                 updatePointsAndInstruction(edge, wayGeo);
