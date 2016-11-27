@@ -416,29 +416,31 @@ public class runKSP {
     public static void main(String[] args) throws Exception {
 
         // PBF from: https://mapzen.com/data/metro-extracts/
-        // SF Grid
-        runKSP ksp = new runKSP("SF", "grid");
         // SF Random
         //runKSP ksp = new runKSP("SF", "rand");
-        // NYC Grid
-        //runKSP ksp = new runKSP("NYC", "grid");
+
         // NYC Random
         //runKSP ksp = new runKSP("NYC", "rand");
         // BOS Check
         //runKSP ksp = new runKSP("BOS", "check");
 
-        // Get routes and scores for origin-destination pairs
+        // SF Grid
+        runKSP ksp = new runKSP("SF", "grid");
         ksp.setDataSources();
         ksp.getGridValues();
         ksp.prepareGraphHopper();
-        //ksp.process_routes();
-
-        // Score external API routes
-        //ksp.setCity("SF");
-        //ksp.setRouteType("grid");
-        ksp.prepMapMatcher();
-        //ksp.PointsToPath("../data/output/sf_grid_google_gpx.csv", "../data/output/sf_grid_google_ghenhanced_sigma100_transitionDefault.csv");
+        //ksp.process_routes();  // get Graphhopper routes
+        ksp.prepMapMatcher();  // score external API routes
+        ksp.PointsToPath("../data/output/sf_grid_google_gpx.csv", "../data/output/sf_grid_google_ghenhanced_sigma100_transitionDefault.csv");
         ksp.PointsToPath("../data/output/sf_grid_mapquest_gpx.csv", "../data/output/sf_grid_mapquest_ghenhanced_sigma100_transitionDefault.csv");
+
+        // NYC Grid
+        ksp = new runKSP("NYC", "grid");
+        ksp.setDataSources();
+        ksp.getGridValues();
+        ksp.prepareGraphHopper();
+        //ksp.process_routes();  // get Graphhopper routes
+        ksp.prepMapMatcher();  // score external API routes
         ksp.PointsToPath("../data/output/nyc_grid_mapquest_gpx.csv", "../data/output/nyc_grid_mapquest_ghenhanced_sigma100_transitionDefault.csv");
         ksp.PointsToPath("../data/output/nyc_grid_google_gpx.csv", "../data/output/nyc_grid_google_ghenhanced_sigma100_transitionDefault.csv");
     }
