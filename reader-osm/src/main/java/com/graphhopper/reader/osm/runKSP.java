@@ -560,15 +560,30 @@ public class runKSP {
         //ksp.getGridValues();
         //ksp.prepareGraphHopper();
         //ksp.prepMapMatcher();  // score external API routes
-        //ksp.PointsToPath("../data/output/sf_grid_mapquest_gpx.csv", "../data/output/sf_grid_mapquest_ghenhanced_sigma100_transitionDefault.csv");
-        //ksp.PointsToPath("../data/output/sf_grid_google_gpx.csv", "../data/output/sf_grid_google_ghenhanced_sigma100_transitionDefault.csv");
-        //ksp.PointsToPath("../data/output/nyc_grid_mapquest_gpx.csv", "../data/output/nyc_grid_mapquest_ghenhanced_sigma100_transitionDefault.csv");
-        //ksp.PointsToPath("../data/output/nyc_grid_google_gpx.csv", "../data/output/nyc_grid_google_ghenhanced_sigma100_transitionDefault.csv");
+        String city = args[0];
+        String inputfolder = "../data/intermediate/";
+        String outputfolder = "../data/output/";
+        ArrayList<String> platforms = new ArrayList<>();
+        platforms.add("google");
+        platforms.add("mapquest");
+        ArrayList<String> conditions = new ArrayList<>();
+        conditions.add("traffic");
+        conditions.add("notraffic");
+        ArrayList<String> routetypes = new ArrayList<>();
+        routetypes.add("main");
+        routetypes.add("alt");
+        for (String platform : platforms) {
+            for (String condition : conditions) {
+                for (String routetype : routetypes) {
+                    ksp.PointsToPath(inputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
+                }
+            }
+        }
 
-        ksp.setDataSources();
-        ksp.getGridValues();
-        ksp.prepareGraphHopper();
-        ksp.getGridCTs();
-        ksp.process_routes();  // get Graphhopper routes
+        //ksp.setDataSources();
+        //ksp.getGridValues();
+        //ksp.prepareGraphHopper();
+        //ksp.getGridCTs();
+        //ksp.process_routes();  // get Graphhopper routes
     }
 }
