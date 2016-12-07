@@ -172,11 +172,7 @@ public class runKSP {
             gridValuesFNs.add(gvfnStem + "36061_logfractionempath_ft.csv");
             gridValuesFNs.add(gvfnStem + "36081_logfractionempath_ft.csv");
             gridValuesFNs.add(gvfnStem + "36085_logfractionempath_ft.csv");
-            gridCTsFNs.add(gctfnStem + "36005_ct_grid.csv");
-            gridCTsFNs.add(gctfnStem + "36047_ct_grid.csv");
-            gridCTsFNs.add(gctfnStem + "36061_ct_grid.csv");
-            gridCTsFNs.add(gctfnStem + "36081_ct_grid.csv");
-            gridCTsFNs.add(gctfnStem + "36085_ct_grid.csv");
+            gridCTsFNs.add(gctfnStem + "nyc_ct.csv");
         } else if (city.equals("BOS")) {
             osmFile = osmFile + "boston_massachusetts.osm.pbf";
             graphFolder = graphFolder + "ghosm_bos_noch";
@@ -291,7 +287,7 @@ public class runKSP {
             maneuvers.add(instruction.getSimpleTurnDescription());
         }
         String routetype = "main";
-        if (optimized.equalsIgnoreCase("alternative")) {
+        if (optimized.equalsIgnoreCase("altn")) {
             routetype = "alternative";
         }
 
