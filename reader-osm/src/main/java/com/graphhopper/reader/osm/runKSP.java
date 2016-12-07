@@ -75,12 +75,16 @@ public class runKSP {
         Scanner sc_in = new Scanner(new File(fin));
         String[] pointsHeader = sc_in.nextLine().split(",");
         int idIdx = -1;
+        int nameIdx = -1;
         int latIdx = -1;
         int lonIdx = -1;
         int timeIdx = -1;
         for (int i=0; i<pointsHeader.length; i++) {
             if (pointsHeader[i].equalsIgnoreCase("ID")) {
                 idIdx = i;
+            }
+            else if (pointsHeader[i].equalsIgnoreCase("name")) {
+                nameIdx = i;
             }
             else if (pointsHeader[i].equalsIgnoreCase("lat")) {
                 latIdx = i;
@@ -95,10 +99,29 @@ public class runKSP {
                 System.out.println("Unexpected header value: " + pointsHeader[i]);
             }
         }
+        String optimized = "";
+        if (fin.indexOf("google") > -1) {
+            optimized = optimized + "Goog";
+        } else if (fin.indexOf("mapquest") > -1) {
+            optimized = optimized + "MapQ";
+        } else {
+            System.out.println("Don't recognize platform: " + fin);
+        }
+        if (fin.indexOf("alt") > -1) {
+            optimized = optimized + " altn";
+        } else if (fin.indexOf("main") > -1) {
+            optimized = optimized + " main";
+        } else {
+            System.out.println("Don't recognize route type: " + fin);
+        }
         String line;
         String[] vals;
         String routeID = "";
         String prevRouteID = "";
+        String name = "";
+        String prevName = "";
+        String label = "";
+        String prevLabel = "";
         double lat;
         double lon;
         long time;
@@ -112,36 +135,45 @@ public class runKSP {
             line = sc_in.nextLine();
             vals = line.split(",");
             routeID = vals[idIdx];
+            name = vals[nameIdx];
+            if (name.equalsIgnoreCase("alternative 2") || name.equalsIgnoreCase("alternative 3")) {
+                continue;
+            }
             lat = Double.valueOf(vals[latIdx]);
             lon = Double.valueOf(vals[lonIdx]);
             time = Long.valueOf(vals[timeIdx]);
+            label = routeID + "|" + name;
             GPXEntry pt = new GPXEntry(lat, lon, time);
-            if (routeID.equalsIgnoreCase(prevRouteID)) {
+            if (label.equalsIgnoreCase(prevLabel)) {
                 pointsList.add(pt);
             }
             else if (pointsList.size() > 0) {
                 path = GPXToPath(pointsList);
-                //path = trimPath(path, pointsList);
                 if (path.getDistance() > 0) {
                     score = getBeauty(path);
-                    writeOutput(sc_out, i, "ExtAPI", prevRouteID, path, score, getNumCTs(path));
+                    writeOutput(sc_out, i, optimized, prevName, prevRouteID, path, score, getNumCTs(path));
                 }
                 pointsList.clear();
-                i++;
                 pointsList.add(pt);
+                i++;
                 if (i % 10 == 0) {
                     for (FileWriter fw : outputFiles) {
                         fw.flush();
                     }
                 }
+            } else {
+                System.out.println("First point.");
+                pointsList.add(pt);
             }
             prevRouteID = routeID;
+            prevName = name;
+            prevLabel = label;
         }
         if (pointsList.size() > 0) {
             path = GPXToPath(pointsList);
             if (path.getDistance() > 0) {
                 score = getBeauty(path);
-                writeOutput(sc_out, i, "ExtAPI", prevRouteID, path, score, getNumCTs(path));
+                writeOutput(sc_out, i, optimized, prevName, prevRouteID, path, score, getNumCTs(path));
             }
         }
         sc_out.close();
@@ -272,7 +304,7 @@ public class runKSP {
     }
 
 
-    public void writeOutput(FileWriter fw, int i, String optimized, String od_id, PathWrapper bestPath, float score, int numCTs) throws IOException {
+    public void writeOutput(FileWriter fw, int i, String optimized, String name, String od_id, PathWrapper bestPath, float score, int numCTs) throws IOException {
 
         // points, distance in meters and time in seconds (convert from ms) of the full path
         PointList pointList = bestPath.getPoints();
@@ -286,12 +318,8 @@ public class runKSP {
         for (Instruction instruction : il) {
             maneuvers.add(instruction.getSimpleTurnDescription());
         }
-        String routetype = "main";
-        if (optimized.equalsIgnoreCase("altn")) {
-            routetype = "alternative";
-        }
 
-        fw.write(od_id + "," + routetype + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
+        fw.write(od_id + "," + name + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
                 ",\"" + maneuvers.toString() + "\"" + "," + score + "," + simplicity + "," + numCTs + System.getProperty("line.separator"));
         System.out.println(i + " (" + optimized + "): Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections + ";\tSimplicity: " + simplicity + ";\tScore: " + score + ";\tNumCts: " + numCTs);
 
@@ -414,7 +442,7 @@ public class runKSP {
                 }
                 j++;
             }
-            writeOutput(outputFiles.get(0), i, "Best", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx)));
+            writeOutput(outputFiles.get(0), i, "Best", "beauty", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx)));
             float maxBeauty = bestscore;
 
             // Find least-beautiful route within similar distance constraints
@@ -434,7 +462,7 @@ public class runKSP {
                 }
                 j++;
             }
-            writeOutput(outputFiles.get(1), i, "Wrst", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx)));
+            writeOutput(outputFiles.get(1), i, "Wrst", "ugly", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx)));
 
             // Simplest Route
             j = 0;
@@ -450,13 +478,13 @@ public class runKSP {
                 }
                 j++;
             }
-            writeOutput(outputFiles.get(2), i, "Simp", od_id, paths.get(routeidx), beauty, getNumCTs(paths.get(routeidx)));
+            writeOutput(outputFiles.get(2), i, "Simp", "simple", od_id, paths.get(routeidx), beauty, getNumCTs(paths.get(routeidx)));
             float minSimplicity = bestscore;
 
             // Fastest Route
             PathWrapper bestPath = paths.get(0);
             beauty = getBeauty(bestPath);
-            writeOutput(outputFiles.get(3), i, "Fast", od_id, bestPath, beauty, getNumCTs(bestPath));
+            writeOutput(outputFiles.get(3), i, "Fast", "Fastest", od_id, bestPath, beauty, getNumCTs(bestPath));
 
             // Beautifully simple route
             j = 0;
@@ -471,7 +499,7 @@ public class runKSP {
                 }
                 j++;
             }
-            writeOutput(outputFiles.get(6), i, "BeSi", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx)));
+            writeOutput(outputFiles.get(6), i, "BeSi", "beauty-simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx)));
 
             // Shortest Route
             req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
@@ -492,7 +520,7 @@ public class runKSP {
             // Get shortest path
             bestPath = rsp.getBest();
             beauty = getBeauty(bestPath);
-            writeOutput(outputFiles.get(4), i, "Shrt", od_id, bestPath, beauty, getNumCTs(bestPath));
+            writeOutput(outputFiles.get(4), i, "Shrt", "shortest", od_id, bestPath, beauty, getNumCTs(bestPath));
 
             // Alternative Route
             req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
@@ -525,7 +553,7 @@ public class runKSP {
             }
             PathWrapper altpath = paths.get(1);
             beauty = getBeauty(altpath);
-            writeOutput(outputFiles.get(5), i, "Altn", od_id, altpath, beauty, getNumCTs(altpath));
+            writeOutput(outputFiles.get(5), i, "Altn", "altn", od_id, altpath, beauty, getNumCTs(altpath));
 
 
         }
@@ -556,10 +584,11 @@ public class runKSP {
         // BOS Check
         //runKSP ksp = new runKSP("BOS", "check");
 
-        //ksp.setDataSources();
-        //ksp.getGridValues();
-        //ksp.prepareGraphHopper();
-        //ksp.prepMapMatcher();  // score external API routes
+        ksp.setDataSources();
+        ksp.getGridValues();
+        ksp.prepareGraphHopper();
+        ksp.getGridCTs();
+        ksp.prepMapMatcher();  // score external API routes
         String city = args[0];
         String inputfolder = "../data/intermediate/";
         String outputfolder = "../data/output/";
