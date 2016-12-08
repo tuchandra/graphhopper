@@ -187,14 +187,14 @@ public class runKSP {
 
 
     public void setDataSources() throws Exception {
-        if (city.equals("SF")) {
+        if (city.equals("sf")) {
             osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
             graphFolder = graphFolder + "ghosm_sf_noch";
             inputPointsFN = inputPointsFN + "sf_" + route_type + "_od_pairs.csv";
             outputPointsFN = outputPointsFN + "sf_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "06075_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "06075_ct_grid.csv");
-        } else if (city.equals("NYC")) {
+        } else if (city.equals("nyc")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc_noch";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
@@ -205,7 +205,7 @@ public class runKSP {
             gridValuesFNs.add(gvfnStem + "36081_logfractionempath_ft.csv");
             gridValuesFNs.add(gvfnStem + "36085_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "nyc_ct_grid.csv");
-        } else if (city.equals("BOS")) {
+        } else if (city.equals("bos")) {
             osmFile = osmFile + "boston_massachusetts.osm.pbf";
             graphFolder = graphFolder + "ghosm_bos_noch";
             inputPointsFN = inputPointsFN + "bos_" + route_type + "_od_pairs.csv";
@@ -569,8 +569,11 @@ public class runKSP {
 
         // PBFs from: https://mapzen.com/data/metro-extracts/
 
+        String city = args[0];
+        runKSP ksp = new runKSP(city, "grid");
+
         // SF Grid
-        runKSP ksp = new runKSP("SF", "grid");
+        //runKSP ksp = new runKSP("SF", "grid");
 
         // SF Random
         //runKSP ksp = new runKSP("SF", "rand");
@@ -589,7 +592,6 @@ public class runKSP {
         ksp.prepareGraphHopper();
         ksp.getGridCTs();
         ksp.prepMapMatcher();  // score external API routes
-        String city = args[0];
         String inputfolder = "../data/intermediate/";
         String outputfolder = "../data/output/";
         ArrayList<String> platforms = new ArrayList<>();
