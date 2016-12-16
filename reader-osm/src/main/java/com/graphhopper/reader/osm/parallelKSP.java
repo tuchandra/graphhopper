@@ -17,6 +17,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -401,6 +402,9 @@ public class parallelKSP {
 
     public void process_routes() throws Exception {
 
+        AtomicInteger num_processed = new AtomicInteger();
+        int num_odpairs = id_to_points.size();
+
         ConcurrentHashMap<String, ConcurrentHashMap<String, String>> results = new ConcurrentHashMap<>();
         for (String optimization : optimizations) {
             results.put(optimization, new ConcurrentHashMap<>());
@@ -411,6 +415,10 @@ public class parallelKSP {
             HashMap<String, String> routes = process_route(route);
             for (String optimization : optimizations) {
                 results.get(optimization).put(od_id, routes.getOrDefault(optimization, "FAILURE"));
+            }
+            int i = num_processed.incrementAndGet();
+            if (i % 50 == 0) {
+                System.out.println(i + " of " + num_odpairs + " o-d pairs processed.");
             }
         }
         );
