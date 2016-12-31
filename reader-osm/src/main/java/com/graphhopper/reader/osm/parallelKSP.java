@@ -60,6 +60,7 @@ public class parallelKSP {
         optimizations.add("fast");
         optimizations.add("short");
         optimizations.add("alt");
+        optimizations.add("mindirections");
 
     }
 
@@ -139,12 +140,9 @@ public class parallelKSP {
         double lat;
         double lon;
         long time;
+        HashMap<String, ArrayList<GPXEntry>> pointsLists = new HashMap<>();
+        HashMap<String, String> routeNames = new HashMap<>();
         ArrayList<GPXEntry> pointsList = new ArrayList<>();
-        PathWrapper path;
-        FileWriter sc_out = new FileWriter(fout, true);
-        sc_out.write(outputheader);
-        int i = 0;
-        float score;
         while (sc_in.hasNext()) {
             line = sc_in.nextLine();
             vals = line.split(",");
@@ -162,19 +160,10 @@ public class parallelKSP {
                 pointsList.add(pt);
             }
             else if (pointsList.size() > 0) {
-                path = GPXToPath(pointsList);
-                if (path.getDistance() > 0) {
-                    score = getBeauty(path);
-                    //writeOutput(sc_out, i, optimized, prevName, prevRouteID, path, score, getNumCTs(path));
-                }
-                pointsList.clear();
+                pointsLists.put(prevRouteID, pointsList);
+                routeNames.put(prevRouteID, prevName);
+                pointsList = new ArrayList<>();
                 pointsList.add(pt);
-                i++;
-                if (i % 10 == 0) {
-                    for (FileWriter fw : outputFiles.values()) {
-                        fw.flush();
-                    }
-                }
             } else {
                 System.out.println("First point.");
                 pointsList.add(pt);
@@ -184,14 +173,42 @@ public class parallelKSP {
             prevLabel = label;
         }
         if (pointsList.size() > 0) {
-            path = GPXToPath(pointsList);
-            if (path.getDistance() > 0) {
-                score = getBeauty(path);
-                //writeOutput(sc_out, i, optimized, prevName, prevRouteID, path, score, getNumCTs(path));
-            }
+            pointsLists.put(prevRouteID, pointsList);
+            routeNames.put(prevRouteID, prevName);
+        }
+        sc_in.close();
+
+        ConcurrentHashMap<String, String> results = getPaths(pointsLists, routeNames, optimized);
+        FileWriter sc_out = new FileWriter(fout, true);
+        sc_out.write(outputheader);
+        for (String result : results.values()) {
+            sc_out.write(result);
         }
         sc_out.close();
-        sc_in.close();
+    }
+
+    public ConcurrentHashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists, HashMap<String, String> routeNames, String optimized) {
+
+        AtomicInteger num_processed = new AtomicInteger();
+        int num_routes = pointLists.size();
+        Set<String> routeIDs = pointLists.keySet();
+
+        ConcurrentHashMap<String, String> results = new ConcurrentHashMap<>();
+        routeIDs.parallelStream().forEach(routeID -> {
+            System.out.println("Processing: " + routeID);
+            int i = num_processed.incrementAndGet();
+            PathWrapper path = GPXToPath(pointLists.get(routeID));
+            if (path.getDistance() > 0) {
+                float score = getBeauty(path);
+                results.put(routeID, writeOutput(i, optimized, routeNames.get(routeID), routeID, path, score, getNumCTs(path)));
+            }
+            if (i % 50 == 0) {
+                System.out.println(i + " of " + num_routes + " routes matched.");
+            }
+        }
+        );
+
+        return results;
     }
 
     //TODO: find some way to match path to virtual nodes at start/finish or hope map-matcher updates
@@ -226,6 +243,13 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "bos_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "25025_beauty_twitter.csv");
             gridCTsFNs.add(gctfnStem + "25025_ct_grid.csv");
+        } else if (city.equals("chi")) {
+            osmFile = osmFile + "chicago_illinois.osm.pbf";
+            graphFolder = graphFolder + "ghosm_chi_noch";
+            inputPointsFN = inputPointsFN + "chi_" + route_type + "_od_pairs.csv";
+            outputPointsFN = outputPointsFN + "chi_" + route_type + "_gh_routes.csv";
+            gridValuesFNs.add(gvfnStem + "17031_logfractionempath_ft.csv");
+            gridCTsFNs.add(gctfnStem + "17031_ct_grid.csv");
         } else {
             throw new Exception("Invalid Parameters: city must be of 'SF','NYC', or 'BOS' and route_type of 'grid' or 'rand'");
         }
@@ -455,7 +479,7 @@ public class parallelKSP {
         if (rsp.hasErrors()) {
             // handle them!
             System.out.println(rsp.getErrors().toString());
-            System.out.println(route + ": Skipping.");
+            System.out.println(route + ": Error - skipping.");
             for (String optimization : optimizations) {
                 responses.put(optimization, defaultRow);
             }
@@ -465,16 +489,26 @@ public class parallelKSP {
         // Get All Routes (up to 10K right now)
         List<PathWrapper> paths = rsp.getAll();
 
+        if (paths.size() == 0) {
+            System.out.println(route + ": No paths - skipping.");
+            for (String optimization : optimizations) {
+                responses.put(optimization, defaultRow);
+            }
+            return responses;
+        }
+
         // Score each route on beauty to determine most beautiful
         int j = 0;
         float bestscore = -1000;
         int routeidx = -1;
+        int capPathsPerMVT = paths.size() - 1;
         for (PathWrapper path : paths) {
             float score = getBeauty(path);
             if (score > bestscore) {
                 bestscore = score;
                 routeidx = j;
             }
+            System.out.println(j + "\t" + score);
             j++;
         }
         responses.put("beauty", writeOutput(route, "Best", "beauty", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx))));
@@ -487,15 +521,19 @@ public class parallelKSP {
         routeidx = -1;
         double uglydistance;
         for (PathWrapper path : paths) {
-            uglydistance = path.getDistance();
-            if (uglydistance / beautyDistance < 1.05 && uglydistance / beautyDistance > 0.95) {
-                float score = getBeauty(path);
-                if (score < bestscore) {
-                    bestscore = score;
-                    routeidx = j;
+            if (j < capPathsPerMVT) {
+                uglydistance = path.getDistance();
+                if (uglydistance / beautyDistance < 1.05 && uglydistance / beautyDistance > 0.95) {
+                    float score = getBeauty(path);
+                    if (score < bestscore) {
+                        bestscore = score;
+                        routeidx = j;
+                    }
                 }
+                j++;
+            } else {
+                break;
             }
-            j++;
         }
         responses.put("ugly", writeOutput(route, "Wrst", "ugly", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx))));
 
@@ -535,6 +573,23 @@ public class parallelKSP {
             j++;
         }
         responses.put("besi", writeOutput(route, "BeSi", "beauty-simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
+
+        // Fewest # directions
+        j = 0;
+        bestscore = 10000;
+        routeidx = 0;
+        InstructionList il;
+        int numDirections;
+        for (PathWrapper path : paths) {
+            il = path.getInstructions();
+            numDirections = il.getSize();
+            if (numDirections < bestscore) {
+                bestscore = numDirections;
+                routeidx = j;
+            }
+            j++;
+        }
+        responses.put("mindirections", writeOutput(route, "MnDi", "mindirections", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
 
 
         // Shortest Route
@@ -595,10 +650,35 @@ public class parallelKSP {
         // PBFs from: https://mapzen.com/data/metro-extracts/
 
         //String city = args[0];
-        String city = "nyc";
-        parallelKSP ksp = new parallelKSP(city, "grid");
+        String city = "sf";  // nyc
+        String odtype = "grid";  // rand
+        parallelKSP ksp = new parallelKSP(city, odtype);
         boolean matchexternal = false;
-        boolean getghroutes = true;
+        boolean getghroutes = false;
+        boolean testing = true;
+
+        if (testing) {
+            ksp.setDataSources();
+            ksp.getGridValues();
+            ksp.prepareGraphHopper();
+            ksp.getGridCTs();
+            ksp.prepMapMatcher();  // score external API routes
+            String inputfolder = "../data/SCRATCH/";
+            String outputfolder = "../data/SCRATCH/";
+            ArrayList<String> platforms = new ArrayList<>();
+            platforms.add("mapquest");
+            ArrayList<String> conditions = new ArrayList<>();
+            conditions.add("traffic");
+            ArrayList<String> routetypes = new ArrayList<>();
+            routetypes.add("main");
+            for (String platform : platforms) {
+                for (String condition : conditions) {
+                    for (String routetype : routetypes) {
+                        ksp.PointsToPath(inputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
+                    }
+                }
+            }
+        }
 
         if (matchexternal) {
             ksp.setDataSources();
@@ -607,7 +687,7 @@ public class parallelKSP {
             ksp.getGridCTs();
             ksp.prepMapMatcher();  // score external API routes
             String inputfolder = "../data/intermediate/";
-            String outputfolder = "../data/output/";
+            String outputfolder = "../data/SCRATCH/";
             ArrayList<String> platforms = new ArrayList<>();
             platforms.add("google");
             platforms.add("mapquest");
@@ -620,7 +700,7 @@ public class parallelKSP {
             for (String platform : platforms) {
                 for (String condition : conditions) {
                     for (String routetype : routetypes) {
-                        ksp.PointsToPath(inputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
+                        ksp.PointsToPath(inputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
                     }
                 }
             }
