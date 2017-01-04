@@ -267,8 +267,8 @@ public class parallelKSP {
         } else if (city.equals("man")) {
             osmFile = osmFile + "manila_philippines.osm.pbf";
             graphFolder = graphFolder + "ghosm_man_noch";
-            inputPointsFN = inputPointsFN + "sin_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "sin_" + route_type + "_gh_routes.csv";
+            inputPointsFN = inputPointsFN + "man_" + route_type + "_od_pairs.csv";
+            outputPointsFN = outputPointsFN + "man_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "MANILA_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "");
         } else {
@@ -389,7 +389,7 @@ public class parallelKSP {
             maneuvers.add(instruction.getSimpleTurnDescription());
         }
 
-        System.out.println(i + " (" + optimized + "): Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections + ";\tSimplicity: " + simplicity + ";\tScore: " + score + ";\tNumCts: " + numCTs + ";\tPctNHT: " + pctNHT + ";\tPctNHD: " + pctNHD);
+        System.out.println(i + " (" + optimized + "): Distance: " + distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections + ";\tSimplicity: " + simplicity + ";\tScore: " + score + ";\tNumCts: " + numCTs + ";\tPctNHT: " + nonHighwayTimeInSec + ";\tPctNHD: " + nonHighwayDistance);
         return od_id + "," + name + "," + "\"[" + pointList + "]\"," + timeInSec + "," + distance + "," + numDirections +
                 ",\"" + maneuvers.toString() + "\"" + "," + score + "," + simplicity + "," + numCTs + "," + pctNHT + "," + pctNHD + System.getProperty("line.separator");
 
@@ -693,7 +693,7 @@ public class parallelKSP {
         // PBFs from: https://mapzen.com/data/metro-extracts/
 
         //String city = args[0];
-        String city = "lon";  // sf, nyc, chi, lon, man, sin
+        String city = "man";  // sf, nyc, chi, lon, man, sin
         String odtype = "grid";  // grid, rand
         parallelKSP ksp = new parallelKSP(city, odtype);
         boolean matchexternal = false;

@@ -380,6 +380,7 @@ public class parallelKSP_debug {
                 result = result + ",";
             }
         }
+        System.out.println(result);
         return result + System.getProperty("line.separator");
     }
 
@@ -540,6 +541,7 @@ public class parallelKSP_debug {
                 for (int i = prevbinstep; i < curbinstep; i++) {
                     tradeoffs[i] = time_tradeoff;
                 }
+                prevbinstep = curbinstep;
             }
             j++;
         }
@@ -559,6 +561,7 @@ public class parallelKSP_debug {
                 for (int i = prevbinstep; i < curbinstep; i++) {
                     tradeoffs[i] = time_tradeoff;
                 }
+                prevbinstep = curbinstep;
             }
             j++;
         }
