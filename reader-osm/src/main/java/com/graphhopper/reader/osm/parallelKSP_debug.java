@@ -523,7 +523,8 @@ public class parallelKSP_debug {
             return responses;
         }
 
-        float[] tradeoffs = new float[Math.floorDiv(maxstep, stepsize)];
+        int numbinsteps = Math.floorDiv(maxstep, stepsize);
+        float[] tradeoffs = new float[numbinsteps];
         long mintime = paths.get(0).getTime();
         float defaultbeauty = getBeauty(paths.get(0));
         int defaultsimplicity = paths.get(0).getSimplicity();
@@ -537,11 +538,17 @@ public class parallelKSP_debug {
             if (score > bestscore) {
                 bestscore = score;
                 int curbinstep = (int) (((bestscore / defaultbeauty * 100) - 100) / stepsize);
+                if (curbinstep > numbinsteps - 1) {
+                    curbinstep = numbinsteps - 1;
+                }
                 float time_tradeoff = (float) path.getTime() / mintime;
                 for (int i = prevbinstep; i < curbinstep; i++) {
                     tradeoffs[i] = time_tradeoff;
                 }
                 prevbinstep = curbinstep;
+                if (curbinstep == numbinsteps - 1) {
+                    break;
+                }
             }
             j++;
         }
@@ -557,11 +564,17 @@ public class parallelKSP_debug {
             if (score < bestscore) {
                 bestscore = score;
                 int curbinstep = (int) ((100 - (bestscore * 100.0 / defaultsimplicity)) / stepsize);
+                if (curbinstep > numbinsteps - 1) {
+                    curbinstep = numbinsteps;
+                }
                 float time_tradeoff = (float) path.getTime() / mintime;
                 for (int i = prevbinstep; i < curbinstep; i++) {
                     tradeoffs[i] = time_tradeoff;
                 }
                 prevbinstep = curbinstep;
+                if (curbinstep == numbinsteps - 1) {
+                    break;
+                }
             }
             j++;
         }
