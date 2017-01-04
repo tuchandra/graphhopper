@@ -527,6 +527,14 @@ public class parallelKSP_debug {
         float[] tradeoffs = new float[numbinsteps];
         long mintime = paths.get(0).getTime();
         float defaultbeauty = getBeauty(paths.get(0));
+        if (defaultbeauty == 0) {
+            int i = 1;
+            while (defaultbeauty == 0) {
+                defaultbeauty = getBeauty(paths.get(i));
+                i++;
+            }
+            System.out.println("\tUsed beauty for " + (i-1) + "th path for " + od_id);
+        }
         int defaultsimplicity = paths.get(0).getSimplicity();
 
         // Score each route on beauty to determine most beautiful
