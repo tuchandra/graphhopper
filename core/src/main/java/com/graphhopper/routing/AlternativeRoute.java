@@ -428,6 +428,8 @@ public class AlternativeRoute implements RoutingAlgorithm {
                                     setWeight(weight);
                             path.extract();
 
+                            //TODO: check if MVT exceeded per Quercia et al. and stop searching
+
                             // for now do not add alternatives to set, if we do we need to remove then on alternatives.clear too (see below)
                             // AtomicInteger tid = addToMap(traversalIDMap, path);
                             // int tid = traversalMode.createTraversalId(path.calcEdges().get(0), false);

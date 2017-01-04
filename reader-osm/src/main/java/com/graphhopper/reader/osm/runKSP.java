@@ -569,52 +569,44 @@ public class runKSP {
 
         // PBFs from: https://mapzen.com/data/metro-extracts/
 
-        String city = args[0];
-        runKSP ksp = new runKSP(city, "grid");
+        //String city = args[0];
+        String city = "nyc";
+        runKSP ksp = new runKSP(city.toUpperCase(), "grid");
+        boolean matchexternal = false;
+        boolean getghroutes = true;
 
-        // SF Grid
-        //runKSP ksp = new runKSP("SF", "grid");
-
-        // SF Random
-        //runKSP ksp = new runKSP("SF", "rand");
-
-        // NYC Grid
-        //runKSP ksp = new runKSP("NYC", "grid");
-
-        // NYC Random
-        //runKSP ksp = new runKSP("NYC", "rand");
-
-        // BOS Check
-        //runKSP ksp = new runKSP("BOS", "check");
-
-        ksp.setDataSources();
-        ksp.getGridValues();
-        ksp.prepareGraphHopper();
-        ksp.getGridCTs();
-        ksp.prepMapMatcher();  // score external API routes
-        String inputfolder = "../data/intermediate/";
-        String outputfolder = "../data/output/";
-        ArrayList<String> platforms = new ArrayList<>();
-        platforms.add("google");
-        platforms.add("mapquest");
-        ArrayList<String> conditions = new ArrayList<>();
-        conditions.add("traffic");
-        conditions.add("notraffic");
-        ArrayList<String> routetypes = new ArrayList<>();
-        routetypes.add("main");
-        routetypes.add("alt");
-        for (String platform : platforms) {
-            for (String condition : conditions) {
-                for (String routetype : routetypes) {
-                    ksp.PointsToPath(inputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
+        if (matchexternal) {
+            ksp.setDataSources();
+            ksp.getGridValues();
+            ksp.prepareGraphHopper();
+            ksp.getGridCTs();
+            ksp.prepMapMatcher();  // score external API routes
+            String inputfolder = "../data/intermediate/";
+            String outputfolder = "../data/output/";
+            ArrayList<String> platforms = new ArrayList<>();
+            platforms.add("google");
+            platforms.add("mapquest");
+            ArrayList<String> conditions = new ArrayList<>();
+            conditions.add("traffic");
+            conditions.add("notraffic");
+            ArrayList<String> routetypes = new ArrayList<>();
+            routetypes.add("main");
+            routetypes.add("alt");
+            for (String platform : platforms) {
+                for (String condition : conditions) {
+                    for (String routetype : routetypes) {
+                        ksp.PointsToPath(inputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_grid_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
+                    }
                 }
             }
         }
 
-        //ksp.setDataSources();
-        //ksp.getGridValues();
-        //ksp.prepareGraphHopper();
-        //ksp.getGridCTs();
-        //ksp.process_routes();  // get Graphhopper routes
+        if (getghroutes) {
+            ksp.setDataSources();
+            ksp.getGridValues();
+            ksp.prepareGraphHopper();
+            ksp.getGridCTs();
+            ksp.process_routes();  // get Graphhopper routes
+        }
     }
 }

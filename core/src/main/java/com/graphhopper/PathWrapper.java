@@ -38,10 +38,12 @@ public class PathWrapper {
     private final List<Throwable> errors = new ArrayList<Throwable>(4);
     private List<String> description;
     private double distance;
+    private double distanceNonHighway;
     private double ascend;
     private double descend;
     private double routeWeight;
     private long time;
+    private long timeNonHighway;
     private String debugInfo = "";
     private InstructionList instructions;
     private PointList waypointList = PointList.EMPTY;
@@ -152,6 +154,16 @@ public class PathWrapper {
         return this;
     }
 
+    public double getNonHighwayDistance() {
+        check("getDistance");
+        return distanceNonHighway;
+    }
+
+    public PathWrapper setNonHighwayDistance(double distance) {
+        this.distanceNonHighway = distance;
+        return this;
+    }
+
     /**
      * This method returns the total elevation change (going upwards) in meter.
      * <p>
@@ -198,6 +210,16 @@ public class PathWrapper {
 
     public PathWrapper setTime(long timeInMillis) {
         this.time = timeInMillis;
+        return this;
+    }
+
+    public long getNonHighwayTime() {
+        check("getTimes");
+        return timeNonHighway;
+    }
+
+    public PathWrapper setNonHighwayTime(long timeInMillis) {
+        this.timeNonHighway = timeInMillis;
         return this;
     }
 

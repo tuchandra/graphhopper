@@ -62,8 +62,10 @@ public class PathMerger {
     public void doWork(PathWrapper altRsp, List<Path> paths, Translation tr) {
         int origPoints = 0;
         long fullTimeInMillis = 0;
+        long fullNHTimeInMillis = 0;
         double fullWeight = 0;
         double fullDistance = 0;
+        double fullNHDistance = 0;
         boolean allFound = true;
         int simplicity = 0;
 
@@ -74,7 +76,9 @@ public class PathMerger {
             Path path = paths.get(pathIndex);
             description.addAll(path.getDescription());
             fullTimeInMillis += path.getTime();
+            fullNHTimeInMillis += path.getNonHighwayime();
             fullDistance += path.getDistance();
+            fullNHDistance += path.getNonHighwayDistance();
             fullWeight += path.getWeight();
             if (enableInstructions) {
                 InstructionList il = path.calcInstructions(tr);
@@ -138,6 +142,8 @@ public class PathMerger {
                 setRouteWeight(fullWeight).
                 setDistance(fullDistance).
                 setTime(fullTimeInMillis).
+                setNonHighwayDistance(fullNHDistance).
+                setNonHighwayTime(fullNHTimeInMillis).
                 setSimplicity(simplicity);
     }
 

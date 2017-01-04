@@ -49,6 +49,8 @@ public class Path {
     // we go upwards (via SPTEntry.parent) from the goal node to the origin node
     protected boolean reverseOrder = true;
     protected long time;
+    protected double distanceNonHighway;
+    protected long timeNonHighway;
     /**
      * Shortest path tree entry
      */
@@ -167,11 +169,19 @@ public class Path {
         return distance;
     }
 
+    public double getNonHighwayDistance() {
+        return distanceNonHighway;
+    }
+
     /**
      * @return time in millis
      */
     public long getTime() {
         return time;
+    }
+
+    public long getNonHighwayime() {
+        return timeNonHighway;
     }
 
     /**
@@ -232,8 +242,14 @@ public class Path {
      */
     protected void processEdge(int edgeId, int adjNode, int prevEdgeId) {
         EdgeIteratorState iter = graph.getEdgeIteratorState(edgeId, adjNode);
-        distance += iter.getDistance();
-        time += weighting.calcMillis(iter, false, prevEdgeId);
+        double d = iter.getDistance();
+        long t = weighting.calcMillis(iter, false, prevEdgeId);
+        distance += d;
+        time += t;
+        if (d / (t / 1000.0) > 20)  {  // 20 m per sec just under 45 mph
+            distanceNonHighway += d;
+            timeNonHighway += t;
+        }
         addEdge(edgeId);
     }
 
