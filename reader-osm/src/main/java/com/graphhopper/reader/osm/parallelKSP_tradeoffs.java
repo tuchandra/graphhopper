@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by isaac on 09/14/16.
  */
-public class parallelKSP {
+public class parallelKSP_tradeoffs {
 
     String city;
     String route_type;
@@ -31,7 +31,7 @@ public class parallelKSP {
     private String osmFile = "./reader-osm/files/";
     private String graphFolder = "./reader-osm/target/tmp/";
     private String inputPointsFN = "../data/intermediate/";
-    private String outputPointsFN = "../data/final/impacts/";
+    private String outputPointsFN = "../data/final/tradeoffs/";
     private String gvfnStem = "../data/intermediate/";
     private String gctfnStem = "../geometries/";
     private ArrayList<String> gridValuesFNs = new ArrayList<>();
@@ -41,27 +41,26 @@ public class parallelKSP {
     private HashMap<String, Integer> gridCT;
     private GraphHopper hopper;
     private MapMatching mapMatching;
-    private String outputheader = "ID,name,polyline_points,total_time_in_sec,total_distance_in_meters,number_of_steps,maneuvers,beauty,simplicity,pctNonHighwayTime,pctNonHighwayDist,pctNeiTime,pctNeiDist" +
-            System.getProperty("line.separator");
+    private String outputheader = "ID";
     private ArrayList<float[]> inputPoints = new ArrayList<>();
     private ArrayList<String> id_to_points = new ArrayList<>();
     private ArrayList<String> optimizations = new ArrayList<>();
+    private int stepsize = 10;
+    private int maxstep = 100;
 
-
-    public parallelKSP(String city, String route_type) {
+    public parallelKSP_tradeoffs(String city, String route_type) {
 
         this.city = city;
         this.route_type = route_type;
         this.outputFiles = new HashMap<>();
-        optimizations.add("beauty");
-        //optimizations.add("ugly");
-        optimizations.add("simple");
-        //optimizations.add("besi");
-        optimizations.add("fast");
-        //optimizations.add("short");
-        //optimizations.add("alt");
-        //optimizations.add("mindirections");
-
+        optimizations.add("beauty_time");
+        optimizations.add("simple_time");
+        optimizations.add("beauty_beauty");
+        optimizations.add("simple_simple");
+        for (int i = 0; i <= maxstep; i += stepsize) {
+            outputheader = outputheader + "," + i + "pct";
+        }
+        outputheader = outputheader + System.getProperty("line.separator");
     }
 
     public void setCity(String city) {
@@ -200,10 +199,10 @@ public class parallelKSP {
             PathWrapper path = GPXToPath(pointLists.get(routeID));
             if (path.getDistance() > 0) {
                 float score = getBeauty(path);
-                results.put(routeID, writeOutput(i, optimized, routeNames.get(routeID), routeID, path, score));
+                results.put(routeID, writeOutput(routeID, new float[1], new int[1]));
             }
             if (i % 50 == 0) {
-                System.out.println("\t\t" + i + " of " + num_routes + " routes matched.");
+                System.out.println(i + " of " + num_routes + " routes matched.");
             }
         }
         );
@@ -370,42 +369,59 @@ public class parallelKSP {
     }
 
 
-    public String writeOutput(int i, String optimized, String name, String od_id, PathWrapper bestPath, float score) {
+    public String writeOutput(String od_id, float[] scores, int[] bestindices) {
 
-        // points, distance in meters and time in seconds (convert from ms) of the full path
-        PointList pointList = bestPath.getPoints();
-        int simplicity = bestPath.getSimplicity();
-        double distance = Math.round(bestPath.getDistance() * 100) / 100;
-        double nonHighwayDistance = bestPath.getNonHighwayDistance();
-        double pctNHD = Math.round(1000.0 * (float) nonHighwayDistance / distance) / 1000.0;
-        long timeInSec = bestPath.getTime() / 1000;
-        long nonHighwayTimeInSec = bestPath.getNonHighwayTime() / 1000;
-        double pctNHT = Math.round(1000.0 * (float) nonHighwayTimeInSec / timeInSec) / 1000.0;
-        double smallNeiDistance = bestPath.getNeiHighwayDistance();
-        double pctNeiD = Math.round(1000.0 * (float) smallNeiDistance / distance) / 1000.0;
-        long neiHighwayTimeInSec = bestPath.getTimeSmallNeigh() / 1000;
-        double pctNeiT = Math.round(1000.0 * (float) neiHighwayTimeInSec / timeInSec) / 1000.0;
-        InstructionList il = bestPath.getInstructions();
-        int numDirections = il.getSize();
-        // iterate over every turn instruction
-        ArrayList<String> maneuvers = new ArrayList<>();
-        for (Instruction instruction : il) {
-            maneuvers.add(instruction.getSimpleTurnDescription());
+        // preps output for CSV
+        String result = od_id;
+        int num_bins = bestindices.length;
+        for (int i = 0; i < num_bins; i++) {
+            try {
+                result = result + "," + scores[bestindices[i]];
+            } catch (ArrayIndexOutOfBoundsException ai) {
+                result = result + ",";
+                System.out.println(System.getProperty("line.separator") + System.getProperty("line.separator") + "ArrayIndexException: beauty" + System.getProperty("line.separator") + System.getProperty("line.separator"));
+            }
         }
+        System.out.println(result);
+        return result + System.getProperty("line.separator");
 
-        System.out.println(i + " (" + optimized + "): Distance: " +
-                distance + "m;\tTime: " + timeInSec + "sec;\t# Directions: " + numDirections +
-                ";\tSimplicity: " + simplicity + ";\tScore: " + score +
-                ";\tPctNHT: " + pctNHT + ";\tPctNeiT: " + pctNeiT);
 
-        return od_id + "," + name + "," +
-                "\"[" + pointList + "]\"," +
-                timeInSec + "," + distance + "," + numDirections +
-                ",\"" + maneuvers.toString() + "\"" + "," +
-                score + "," + simplicity + "," +
-                pctNHT + "," + pctNHD + "," +
-                pctNeiT + "," + pctNeiD +
-                System.getProperty("line.separator");
+    }
+
+    public String writeOutput(String od_id, long[] scores, int[] bestindices) {
+
+        // preps output for CSV
+        String result = od_id;
+        int num_bins = bestindices.length;
+        for (int i = 0; i < num_bins; i++) {
+            try {
+                result = result + "," + scores[bestindices[i]];
+            } catch (ArrayIndexOutOfBoundsException ai) {
+                result = result + ",";
+                System.out.println(System.getProperty("line.separator") + System.getProperty("line.separator") + "ArrayIndexException: time" + System.getProperty("line.separator") + System.getProperty("line.separator"));
+            }
+        }
+        System.out.println(result);
+        return result + System.getProperty("line.separator");
+
+
+    }
+
+    public String writeOutput(String od_id, int[] scores, int[] bestindices) {
+
+        // preps output for CSV
+        String result = od_id;
+        int num_bins = bestindices.length;
+        for (int i = 0; i < num_bins; i++) {
+            try {
+                result = result + "," + scores[bestindices[i]];
+            } catch (ArrayIndexOutOfBoundsException ai) {
+                result = result + ",";
+                System.out.println(System.getProperty("line.separator") + System.getProperty("line.separator") + "ArrayIndexException: simplicity" + System.getProperty("line.separator") + System.getProperty("line.separator"));
+            }
+        }
+        System.out.println(result);
+        return result + System.getProperty("line.separator");
 
 
     }
@@ -439,7 +455,7 @@ public class parallelKSP {
     public void setODPairs() throws Exception {
         // Prep Filewriters (Optimized, Worst-but-same-distance, Fastest, Simplest)
         for (String optimization : optimizations) {
-            outputFiles.put(optimization, new FileWriter(outputPointsFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
+            outputFiles.put(optimization, new FileWriter(outputPointsFN.replaceFirst(".csv", "_optimize" + optimization + "tradeoff.csv"), true));
         }
 
         for (FileWriter fw : outputFiles.values()) {
@@ -491,7 +507,7 @@ public class parallelKSP {
             }
             int i = num_processed.incrementAndGet();
             if (i % 50 == 0) {
-                System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
+                System.out.println(i + " of " + num_odpairs + " o-d pairs processed.");
             }
         }
         );
@@ -521,8 +537,11 @@ public class parallelKSP {
                 setAlgorithm("ksp");
         GHResponse rsp = hopper.route(req);
 
-        String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
-                + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1" + System.getProperty("line.separator");
+        String defaultRow = od_id;
+        for (int i = 0; i <= maxstep; i = i + stepsize) {
+            defaultRow = defaultRow + ",";
+        }
+        defaultRow = defaultRow + System.getProperty("line.separator");
 
         // first check for errors
         if (rsp.hasErrors()) {
@@ -537,8 +556,9 @@ public class parallelKSP {
 
         // Get All Routes (up to 10K right now)
         List<PathWrapper> paths = rsp.getAll();
+        int numpaths = paths.size();
 
-        if (paths.size() == 0) {
+        if (numpaths == 0) {
             System.out.println(route + ": No paths - skipping.");
             for (String optimization : optimizations) {
                 responses.put(optimization, defaultRow);
@@ -546,32 +566,88 @@ public class parallelKSP {
             return responses;
         }
 
-        // Score each route on beauty to determine most beautiful
+        /**
+         *   Algorithm Order:
+         *   1. Most Beautiful
+         *   2. Fastest
+         *   3. Vary Beauty/Fastest by 10%
+         *   4. Simplest
+         *   5. Vary Simplicity/Fastest by 10%
+         *
+         *   Metrics:
+         *   1. Time
+         *   2. What's being optimized - beauty or simplicity
+         *
+         */
+        float[] beautyscores = new float[numpaths];
+        long[] timescores = new long[numpaths];
+        int numbins = Math.floorDiv(maxstep, stepsize) + 1;
+        int[] bestindices = new int[numbins];
+
+        // Store beauty values for all routes and min/max
         int j = 0;
-        float bestscore = -1000;
-        //float originalscore = getBeauty(paths.get(0));
-        int routeidx = -1;
+        int bestidx = 0;
+        int worstidx = 0;
         for (PathWrapper path : paths) {
-            float score = getBeauty(path);
-            if (score > bestscore) {
-                bestscore = score;
-                routeidx = j;
+            beautyscores[j] = getBeauty(path);
+            timescores[j] = path.getTime();
+            if (beautyscores[j] > beautyscores[bestidx]) {
+                bestidx = j;
+            } else if (beautyscores[j] < beautyscores[worstidx]) {
+                worstidx = j;
             }
             j++;
         }
-        //System.out.println("Most beautiful route: " + routeidx);
-        responses.put("beauty", writeOutput(route, "Beau", "beauty", od_id, paths.get(routeidx), bestscore));
-        //float maxBeauty = bestscore;
+        // 100% beauty = most beautiful route idx; 0% beauty is by default already 0, the fastest path
+        bestindices[numbins - 1] = bestidx;
+        // fastest path = 1st, slowest path = last
+        long fastest = paths.get(0).getTime();
+        long slowest = paths.get(numpaths - 1).getTime();
 
         /*
-        // Find least-beautiful route within similar distance constraints
+        long baselinetime = paths.get(0).getTime();
+        float baselinebeauty = getBeauty(paths.get(0));
+        int baselinesimplicity = paths.get(0).getSimplicity();
+
+        if (baselinebeauty == 0) {
+            int i = 1;
+            while (baselinebeauty == 0) {
+                baselinebeauty = getBeauty(paths.get(i));
+                i++;
+            }
+            System.out.println("\tUsed beauty for " + (i-1) + "th path for " + od_id);
+        }
+        */
+
+        // Loop through 10% to 90% weightings, scoring each route on beauty to determine most beautiful
+        for (int i = 1; i < numbins - 1; i = i + 1) {
+            float bestscore = -1;
+            float combinedscore;
+            float beautyscore;
+            float timescore;
+            int bestcomboidx = -1;
+            for (j=0; j<numpaths; j++) {
+                beautyscore = (beautyscores[j] - beautyscores[worstidx]) / (beautyscores[bestidx] - beautyscores[worstidx]);
+                timescore = 1 - (((float) timescores[j] - fastest) / (slowest - fastest));
+                combinedscore = (i * beautyscore) + ((stepsize - i) * timescore);
+                if (combinedscore > bestscore) {
+                    bestscore = combinedscore;
+                    bestcomboidx = j;
+                }
+            }
+            bestindices[i] = bestcomboidx;
+        }
+        responses.put("beauty_beauty", writeOutput(od_id, beautyscores, bestindices));
+        responses.put("beauty_time", writeOutput(od_id, timescores, bestindices));
+
+
+        /* Find least-beautiful route within similar distance constraints
         double beautyDistance = paths.get(routeidx).getDistance();
         j = 0;
         bestscore = 1000;
         routeidx = -1;
         double uglydistance;
         for (PathWrapper path : paths) {
-            //if (j < capPathsPerMVT) {
             uglydistance = path.getDistance();
             if (uglydistance / beautyDistance < 1.05 && uglydistance / beautyDistance > 0.95) {
                 float score = getBeauty(path);
@@ -581,35 +657,60 @@ public class parallelKSP {
                 }
             }
             j++;
-            //} else {
-            //    break;
-            //}
         }
-        responses.put("ugly", writeOutput(route, "Wrst", "ugly", od_id, paths.get(routeidx), bestscore)));
-
+        responses.put("ugly", writeOutput(route, "Wrst", "ugly", od_id, paths.get(routeidx), bestscore, getNumCTs(paths.get(routeidx))));
         */
 
         // Simplest Route
+        int[] simplescores = new int[numpaths];
+        bestindices = new int[numbins];
+
+        // Store beauty values for all routes and min/max
         j = 0;
-        bestscore = 10000;
-        routeidx = 0;
+        bestidx = 0;
+        worstidx = 0;
         for (PathWrapper path : paths) {
-            int score = path.getSimplicity();
-            if (score < bestscore) {
-                bestscore = score;
-                routeidx = j;
+            simplescores[j] = path.getSimplicity();
+            if (simplescores[j] < simplescores[bestidx]) {
+                bestidx = j;
+            } else if (simplescores[j] > simplescores[worstidx]) {
+                worstidx = j;
             }
             j++;
         }
+        // 100% simple = simplest route idx; 0% simplicity is by default already 0, the fastest path
+        bestindices[numbins - 1] = bestidx;
+
+        // Loop through 10% to 90% weightings, scoring each route on beauty to determine most beautiful
+        for (int i = 1; i < numbins - 1; i = i + 1) {
+            float bestscore = -1;
+            float combinedscore;
+            float simplescore;
+            float timescore;
+            int bestcomboidx = -1;
+            for (j=0; j<numpaths; j++) {
+                simplescore = 1 - (((float) simplescores[j] - simplescores[bestidx]) / (simplescores[worstidx] - simplescores[bestidx]));
+                timescore = 1 - (((float) timescores[j] - fastest) / (slowest - fastest));
+                combinedscore = (i * simplescore) + ((stepsize - i) * timescore);
+                if (combinedscore > bestscore) {
+                    bestscore = combinedscore;
+                    bestcomboidx = j;
+                }
+            }
+            bestindices[i] = bestcomboidx;
+        }
+        responses.put("simple_simple", writeOutput(od_id, simplescores, bestindices));
+        responses.put("simple_time", writeOutput(od_id, timescores, bestindices));
+
+        /*
         //System.out.println("Simplest route: " + routeidx);
-        responses.put("simple", writeOutput(route, "Simp", "simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx))));
-        //float minSimplicity = bestscore;
+        responses.put("simple", writeOutput(route, "Simp", "simple", od_id, paths.get(routeidx), beauty, getNumCTs(paths.get(routeidx))));
+        float minSimplicity = bestscore;
 
         // Fastest Route
         PathWrapper bestPath = paths.get(0);
-        responses.put("fast", writeOutput(route, "Fast", "fastest", od_id, bestPath, getBeauty(bestPath)));
-
-        /*
+        beauty = getBeauty(bestPath);
+        responses.put("fast", writeOutput(route, "Fast", "Fastest", od_id, bestPath, beauty, getNumCTs(bestPath)));
 
         // Beautifully simple route
         j = 0;
@@ -626,8 +727,9 @@ public class parallelKSP {
         }
         //System.out.println("Most beautiful-simple route: " + routeidx);
         responses.put("besi", writeOutput(route, "BeSi", "beauty-simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
+        */
 
-        // Fewest # directions
+        /* Fewest # directions
         j = 0;
         bestscore = 10000;
         routeidx = 0;
@@ -642,11 +744,10 @@ public class parallelKSP {
             }
             j++;
         }
-        //System.out.println("Min directions route: " + routeidx);
         responses.put("mindirections", writeOutput(route, "MnDi", "mindirections", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
+        */
 
-
-        // Shortest Route
+        /* Shortest Route
         req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                 setWeighting("shortest").
                 setVehicle("car").
@@ -666,35 +767,7 @@ public class parallelKSP {
             beauty = getBeauty(bestPath);
             responses.put("short", writeOutput(route, "Shrt", "shortest", od_id, bestPath, beauty, getNumCTs(bestPath)));
         }
-
-        // Alternative Route
-        req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
-                setWeighting("fastest").
-                setVehicle("car").
-                setLocale(Locale.US).
-                setAlgorithm("alternative_route");
-        rsp = hopper.route(req);
-
-        // first check for errors
-        if (rsp.hasErrors()) {
-            // handle them!
-            System.out.println(rsp.getErrors().toString());
-            responses.put("alt", defaultRow.replace("main", "alternative"));
-
-        } else {
-            // Get Alt Routes (should be 2, of which first is the fastest path)
-            paths = rsp.getAll();
-            if (paths.size() < 2) {
-                System.out.println(route + ": Did not return an alternative path.");
-                responses.put("alt", defaultRow.replace("main", "alternative"));
-            } else {
-                PathWrapper altpath = paths.get(1);
-                beauty = getBeauty(altpath);
-                responses.put("alt", writeOutput(route, "Altn", "altn", od_id, altpath, beauty, getNumCTs(altpath)));
-            }
-        }
-
-        */
+         */
 
         return responses;
     }
@@ -703,40 +776,12 @@ public class parallelKSP {
 
         // PBFs from: https://mapzen.com/data/metro-extracts/
 
-        String city = "sf";  // sf, nyc, chi, lon, man, sin
-        String odtype = "grid";  // grid, rand
-        //System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
         //String city = args[0];
         //String odtype = args[1];
-        parallelKSP ksp = new parallelKSP(city, odtype);
-        boolean matchexternal = false;
+        String city = "lon";  // sf, nyc, chi, lon, man, sin
+        String odtype = "grid";  // grid, rand
+        parallelKSP_tradeoffs ksp = new parallelKSP_tradeoffs(city, odtype);
         boolean getghroutes = true;
-
-        if (matchexternal) {
-            ksp.setDataSources();
-            ksp.getGridValues();
-            ksp.prepareGraphHopper();
-            ksp.getGridCTs();
-            ksp.prepMapMatcher();  // score external API routes
-            String inputfolder = "../data/intermediate/";
-            String outputfolder = "../data/finalMatched/";
-            ArrayList<String> platforms = new ArrayList<>();
-            platforms.add("google");
-            platforms.add("mapquest");
-            ArrayList<String> conditions = new ArrayList<>();
-            conditions.add("traffic");
-            //conditions.add("notraffic");
-            ArrayList<String> routetypes = new ArrayList<>();
-            routetypes.add("main");
-            //routetypes.add("alt");
-            for (String platform : platforms) {
-                for (String condition : conditions) {
-                    for (String routetype : routetypes) {
-                        ksp.PointsToPath(inputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" + platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
-                    }
-                }
-            }
-        }
 
         if (getghroutes) {
             ksp.setDataSources();

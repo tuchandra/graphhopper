@@ -39,11 +39,13 @@ public class PathWrapper {
     private List<String> description;
     private double distance;
     private double distanceNonHighway;
+    private double distanceSmallNeigh;
     private double ascend;
     private double descend;
     private double routeWeight;
     private long time;
     private long timeNonHighway;
+    private long timeSmallNeigh;
     private String debugInfo = "";
     private InstructionList instructions;
     private PointList waypointList = PointList.EMPTY;
@@ -159,8 +161,18 @@ public class PathWrapper {
         return distanceNonHighway;
     }
 
+    public double getNeiHighwayDistance() {
+        check("getDistance");
+        return distanceSmallNeigh;
+    }
+
     public PathWrapper setNonHighwayDistance(double distance) {
         this.distanceNonHighway = distance;
+        return this;
+    }
+
+    public PathWrapper setNeiHighwayDistance(double distance) {
+        this.distanceSmallNeigh = distance;
         return this;
     }
 
@@ -218,8 +230,18 @@ public class PathWrapper {
         return timeNonHighway;
     }
 
+    public long getTimeSmallNeigh() {
+        check("getTimes");
+        return timeSmallNeigh;
+    }
+
     public PathWrapper setNonHighwayTime(long timeInMillis) {
         this.timeNonHighway = timeInMillis;
+        return this;
+    }
+
+    public PathWrapper setNeiHighwayTime(long timeInMilis) {
+        this.timeSmallNeigh = timeInMilis;
         return this;
     }
 

@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by isaac on 09/14/16.
  */
-public class parallelKSP_debug {
+public class parallelKSP_pctimprovements {
 
     String city;
     String route_type;
@@ -49,7 +49,7 @@ public class parallelKSP_debug {
     private int maxstep = 500;
 
 
-    public parallelKSP_debug(String city, String route_type) {
+    public parallelKSP_pctimprovements(String city, String route_type) {
 
         this.city = city;
         this.route_type = route_type;
@@ -607,7 +607,7 @@ public class parallelKSP_debug {
         //String city = args[0];
         String city = "sf";  // sf, nyc, chi, lon, man, sin
         String odtype = "grid";  // grid, rand
-        parallelKSP_debug ksp = new parallelKSP_debug(city, odtype);
+        parallelKSP_pctimprovements ksp = new parallelKSP_pctimprovements(city, odtype);
         boolean matchexternal = false;
         boolean getghroutes = true;
 

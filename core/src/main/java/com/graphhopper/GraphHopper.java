@@ -101,6 +101,9 @@ public class GraphHopper implements GraphHopperAPI {
     private ElevationProvider eleProvider = ElevationProvider.NOOP;
     private FlagEncoderFactory flagEncoderFactory = FlagEncoderFactory.DEFAULT;
 
+    private String bannedGridCellsFn;
+    private HashSet<Integer> bannedEdges = null;
+
     public GraphHopper() {
         chFactoryDecorator.setEnabled(true);
         algoDecorators.add(chFactoryDecorator);
@@ -155,6 +158,121 @@ public class GraphHopper implements GraphHopperAPI {
         this.eleProvider = eleProvider;
         return this;
     }
+
+    public void setBannedGridCellsFn(String bannedGridCellsFn) {
+        this.bannedGridCellsFn = bannedGridCellsFn;
+    }
+
+
+    private void getBannedEdges() throws IOException {
+        bannedEdges = new HashSet<>();
+        LocationIndex index = getLocationIndex();
+        int numcells = 0;
+        try {
+            HashMap<String, Integer> bpHeaderMap = new HashMap<>();
+            Scanner sc_in = new Scanner(new File(bannedGridCellsFn));
+            String[] bpHeader = sc_in.nextLine().split(",");
+            int i = 0;
+            for (String col : bpHeader) {
+                bpHeaderMap.put(col, i);
+                i++;
+            }
+            String line;
+            String[] vals;
+            Double rid;
+            Double cid;
+            int doBlock;
+            while (sc_in.hasNext()) {
+                line = sc_in.nextLine();
+                vals = line.split(",");
+                try {
+                    rid = Double.valueOf(vals[bpHeaderMap.get("rid")]) / 1000.0;
+                    cid = Double.valueOf(vals[bpHeaderMap.get("cid")]) / 1000.0;
+                    doBlock = Integer.valueOf(vals[bpHeaderMap.get("block")]);
+                    if (doBlock == 1) {
+                        numcells++;
+                        boolean keepSearching = false;
+                        QueryResult qr = index.findClosest(rid + 0.0005, cid + 0.0005, EdgeFilter.ALL_EDGES);  // use point in middle of box
+                        if (!qr.isValid()) {
+                            System.out.println("No valid edge for lat/lon: " + rid + "," + cid);
+                            continue;
+                        }
+                        EdgeIteratorState edge = qr.getClosestEdge();
+                        BBox bBox = new BBox(cid, cid + 0.001, rid, rid + 0.001);
+                        PointList pl = edge.fetchWayGeometry(3);
+                        HashSet<Integer> edgesFound = new HashSet<>();
+                        HashSet<Integer> edgesChecked = new HashSet<>();
+                        for (int n = 0; n < pl.size(); n++) {
+                            double nodeLat = pl.getLat(n);
+                            double nodeLon = pl.getLon(n);
+                            if (bBox.contains(nodeLat, nodeLon)) {
+                                String lineWKT = "LINESTRING (";
+                                for (int m = 0; m < pl.size(); m++) {
+                                    lineWKT = lineWKT + pl.getLon(m) + " " + pl.getLat(m) + ", ";
+                                }
+                                lineWKT = lineWKT.substring(0, lineWKT.length() - 2) + ")";
+                                System.out.println(lineWKT);
+                                edgesFound.add(edge.getEdge());
+                                edgesChecked.add(edge.getEdge());
+                                keepSearching = true;
+                                break;
+                            }
+                        }
+                        if (keepSearching) {
+                            ArrayList<Integer> nodes = new ArrayList<>();
+                            EdgeExplorer explorer = ghStorage.createEdgeExplorer();
+                            for (int k = 0; k < 2; k++) {
+                                if (k == 0) {
+                                    nodes.add(edge.getBaseNode());
+                                } else {
+                                    nodes.add(edge.getAdjNode());
+                                }
+                                while (nodes.size() > 0) {
+                                    EdgeIterator iter = explorer.setBaseNode(nodes.get(0));
+                                    while (iter.next()) {
+                                        if (!edgesChecked.contains(iter.getEdge())) {
+                                            pl = iter.fetchWayGeometry(3);
+                                            edgesChecked.add(iter.getEdge());
+                                            for (int n = 0; n < pl.size(); n++) {
+                                                double nodeLat = pl.getLat(n);
+                                                double nodeLon = pl.getLon(n);
+                                                if (bBox.contains(nodeLat, nodeLon)) {
+                                                    int eid = edge.getEdge();
+                                                    if (!edgesFound.contains(eid)) {
+                                                        String lineWKT = "LINESTRING (";
+                                                        for (int m = 0; m < pl.size(); m++) {
+                                                            lineWKT = lineWKT + pl.getLon(m) + " " + pl.getLat(m) + ", ";
+                                                        }
+                                                        lineWKT = lineWKT.substring(0, lineWKT.length() - 2) + ")";
+                                                        System.out.println(lineWKT);
+                                                        edgesFound.add(eid);
+                                                        nodes.add(edge.getAdjNode());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    nodes.remove(0);
+                                }
+                            }
+                        }
+                        for (Integer eid : edgesFound) {
+                            bannedEdges.add(eid);
+                        }
+                    }
+                } catch (NullPointerException ex) {
+                    System.out.println(ex.getMessage());
+                    System.out.println(line);
+                    continue;
+                }
+            }
+        } catch (IOException io) {
+            System.out.println(io + ": " + bannedGridCellsFn + " does not exist.");
+        }
+        System.out.println(numcells + " cells checked.");
+        System.out.println(bannedEdges.size() + " banned edges.");
+    }
+
 
     /**
      * Threads for data reading.
@@ -932,6 +1050,17 @@ public class GraphHopper implements GraphHopperAPI {
 
         } else if ("short_fastest".equalsIgnoreCase(weighting)) {
             return new ShortFastestWeighting(encoder, hintsMap);
+        } else if ("safest_fastest".equalsIgnoreCase(weighting)) {
+            if (bannedEdges == null) {
+                try {
+                    System.out.println("\nCalculating banned edges!");
+                    getBannedEdges();
+                } catch (IOException io) {
+                    System.out.println("Banned edges calculation failed.");
+                    bannedEdges = new HashSet<>();
+                }
+            }
+            return new AvoidanceWeighting(encoder, hintsMap, bannedEdges);
         }
 
         throw new IllegalArgumentException("weighting " + weighting + " not supported");

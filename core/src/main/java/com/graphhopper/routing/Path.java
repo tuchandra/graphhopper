@@ -17,6 +17,7 @@
  */
 package com.graphhopper.routing;
 
+import com.graphhopper.routing.util.AllEdgesIterator;
 import com.graphhopper.routing.util.DefaultEdgeFilter;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.weighting.Weighting;
@@ -29,6 +30,7 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -51,6 +53,8 @@ public class Path {
     protected long time;
     protected double distanceNonHighway;
     protected long timeNonHighway;
+    protected double distanceSmallNeigh;
+    protected long timeSmallNeigh;
     /**
      * Shortest path tree entry
      */
@@ -173,6 +177,8 @@ public class Path {
         return distanceNonHighway;
     }
 
+    public double getDistanceSmallNeigh() { return distanceSmallNeigh; }
+
     /**
      * @return time in millis
      */
@@ -183,6 +189,8 @@ public class Path {
     public long getNonHighwayime() {
         return timeNonHighway;
     }
+
+    public long getTimeSmallNeigh() { return timeSmallNeigh; }
 
     /**
      * This weight will be updated during the algorithm. The initial value is maximum double.
@@ -246,7 +254,12 @@ public class Path {
         long t = weighting.calcMillis(iter, false, prevEdgeId);
         distance += d;
         time += t;
-        if (d / (t / 1000.0) > 20)  {  // 20 m per sec just under 45 mph
+        double speed = d / (t / 1000.0);
+        if (speed < 12) {  // 12 m per sec just over 25 mph
+            distanceSmallNeigh += d;
+            timeSmallNeigh += t;
+        }
+        if (speed < 20)  {  // 20 m per sec just under 45 mph
             distanceNonHighway += d;
             timeNonHighway += t;
         }
