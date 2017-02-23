@@ -59,7 +59,7 @@ public class AvoidanceWeighting extends AbstractWeighting {
 
 
     public AvoidanceWeighting(FlagEncoder encoder) {
-        this(encoder, new PMap(0), new HashSet<>());
+        this(encoder, new PMap(0), new HashSet<Integer>());
     }
 
     @Override
