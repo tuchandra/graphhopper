@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Created by isaac on 09/14/16.
  */
-public class parallelKSP {
+public class AlternativeRoutingExternalities {
 
     String city;
     String route_type;
@@ -46,22 +46,17 @@ public class parallelKSP {
     private ArrayList<float[]> inputPoints = new ArrayList<>();
     private ArrayList<String> id_to_points = new ArrayList<>();
     private ArrayList<String> optimizations = new ArrayList<>();
+    private String bannedGridCellsFn;
 
 
-    public parallelKSP(String city, String route_type) {
+    public AlternativeRoutingExternalities(String city, String route_type) {
 
         this.city = city;
         this.route_type = route_type;
         this.outputFiles = new HashMap<>();
         optimizations.add("beauty");
-        //optimizations.add("ugly");
         optimizations.add("simple");
-        //optimizations.add("besi");
         optimizations.add("fast");
-        //optimizations.add("short");
-        //optimizations.add("alt");
-        //optimizations.add("mindirections");
-
     }
 
     public void setCity(String city) {
@@ -211,12 +206,6 @@ public class parallelKSP {
         return results;
     }
 
-    //TODO: find some way to match path to virtual nodes at start/finish or hope map-matcher updates
-    public PathWrapper trimPath(PathWrapper path, ArrayList<GPXEntry> original) {
-        return new PathWrapper();
-    }
-
-
     public void setDataSources() throws Exception {
         if (city.equals("sf")) {
             osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
@@ -225,6 +214,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "sf_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "06075_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "06075_ct_grid.csv");
+            bannedGridCellsFn = gctfnStem + "06075_banned_grid_cells.csv";
         } else if (city.equals("nyc")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc_noch";
@@ -236,6 +226,7 @@ public class parallelKSP {
             gridValuesFNs.add(gvfnStem + "36081_logfractionempath_ft.csv");
             gridValuesFNs.add(gvfnStem + "36085_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "nyc_ct_grid.csv");
+            bannedGridCellsFn = gctfnStem + "nyc_banned_grid_cells.csv";
         } else if (city.equals("bos")) {
             osmFile = osmFile + "boston_massachusetts.osm.pbf";
             graphFolder = graphFolder + "ghosm_bos_noch";
@@ -243,6 +234,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "bos_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "25025_beauty_twitter.csv");
             gridCTsFNs.add(gctfnStem + "25025_ct_grid.csv");
+            bannedGridCellsFn = "";
         } else if (city.equals("chi")) {
             osmFile = osmFile + "chicago_illinois.osm.pbf";
             graphFolder = graphFolder + "ghosm_chi_noch";
@@ -250,6 +242,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "chi_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "17031_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "17031_ct_grid.csv");
+            bannedGridCellsFn = "";
         } else if (city.equals("sin")) {
             osmFile = osmFile + "singapore.osm.pbf";
             graphFolder = graphFolder + "ghosm_sin_noch";
@@ -257,6 +250,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "sin_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "SINGAPORE_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "");
+            bannedGridCellsFn = "";
         } else if (city.equals("lon")) {
             osmFile = osmFile + "london_england.osm.pbf";
             graphFolder = graphFolder + "ghosm_lon_noch";
@@ -264,6 +258,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "lon_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "LONDON_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "");
+            bannedGridCellsFn = "";
         } else if (city.equals("man")) {
             osmFile = osmFile + "manila_philippines.osm.pbf";
             graphFolder = graphFolder + "ghosm_man_noch";
@@ -271,6 +266,7 @@ public class parallelKSP {
             outputPointsFN = outputPointsFN + "man_" + route_type + "_gh_routes.csv";
             gridValuesFNs.add(gvfnStem + "MANILA_logfractionempath_ft.csv");
             gridCTsFNs.add(gctfnStem + "");
+            bannedGridCellsFn = "";
         } else {
             throw new Exception("Invalid Parameters: city must be of 'SF','NYC', or 'BOS' and route_type of 'grid' or 'rand'");
         }
@@ -410,20 +406,6 @@ public class parallelKSP {
 
     }
 
-    public int getNumCTs(PathWrapper path) {
-        if (gridCT.size() == 0) {
-            return -1;
-        }
-        HashSet<String> roundedPoints = path.roundPoints();
-        HashSet<Integer> cts = new HashSet<>();
-        for (String pt : roundedPoints) {
-            if (gridCT.containsKey(pt)) {
-                cts.add(gridCT.get(pt));
-            }
-        }
-        return cts.size();
-    }
-
     public float getBeauty(PathWrapper path) {
         HashSet<String> roundedPoints = path.roundPoints();
         float score = 0;
@@ -496,6 +478,28 @@ public class parallelKSP {
         }
         );
 
+        num_processed = new AtomicInteger();
+        // initialize banned edges
+        GHRequest req = new GHRequest(inputPoints.get(0)[0], inputPoints.get(0)[1], inputPoints.get(0)[2], inputPoints.get(0)[3]).  // latFrom, lonFrom, latTo, lonTo
+                setWeighting("safest_fastest").
+                setVehicle("car").
+                setLocale(Locale.US).
+                setAlgorithm("dijkstrabi");
+        GHResponse rsp = hopper.route(req);
+
+        optimizations.add("safety");
+        id_to_points.parallelStream().forEach(od_id -> {
+            System.out.println("Processing: " + od_id);
+            int route = id_to_points.indexOf(od_id);
+            HashMap<String, String> routes = process_route_safety(route);
+            results.get("safety").put(od_id, routes.getOrDefault("safety", "FAILURE"));
+            int i = num_processed.incrementAndGet();
+            if (i % 50 == 0) {
+                System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
+            }
+        }
+        );
+
         for (String optimization : optimizations) {
             for (String result : results.get(optimization).values()) {
                 outputFiles.get(optimization).write(result);
@@ -503,6 +507,79 @@ public class parallelKSP {
             outputFiles.get(optimization).close();
         }
     }
+
+
+    public void print_banned_edges() throws IOException {
+        // Bring in origin-destination pair for processing
+        Scanner sc_in = new Scanner(new File(inputPointsFN));
+        String line = sc_in.nextLine();
+        line = sc_in.nextLine();
+        String[] vals = line.split(",");
+        float loF = Float.valueOf(vals[1]);
+        float laF = Float.valueOf(vals[2]);
+        float loT = Float.valueOf(vals[3]);
+        float laT = Float.valueOf(vals[4]);
+
+        GHRequest req = new GHRequest(laF, loF, laT, loT).  // latFrom, lonFrom, latTo, lonTo
+                setWeighting("safest_fastest").
+                setVehicle("car").
+                setLocale(Locale.US).
+                setAlgorithm("dijkstrabi");
+
+        // print banned edges
+        hopper.route(req);
+    }
+
+
+    public HashMap<String, String> process_route_safety(int route) {
+        // Loop through origin-destination pairs, processing each one for beauty, non-beautiful matched, fastest, and simplest
+        float[] points;
+        String od_id;
+        HashMap<String, String> responses = new HashMap<>();
+
+        // Get Routes
+        points = inputPoints.get(route);
+        od_id = id_to_points.get(route);
+        GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
+                setWeighting("safest_fastest").
+                setVehicle("car").
+                setLocale(Locale.US).
+                setAlgorithm("dijkstrabi");
+        GHResponse rsp = hopper.route(req);
+
+        String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
+                + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1,-1,-1" + System.getProperty("line.separator");
+
+        // first check for errors
+        if (rsp.hasErrors()) {
+            // handle them!
+            System.out.println(rsp.getErrors().toString());
+            System.out.println(route + ": Error - skipping.");
+            for (String optimization : optimizations) {
+                responses.put(optimization, defaultRow);
+            }
+            return responses;
+        }
+
+        // Get All Routes (up to 10K right now)
+        List<PathWrapper> paths = rsp.getAll();
+
+        if (paths.size() == 0) {
+            System.out.println(route + ": No paths - skipping.");
+            for (String optimization : optimizations) {
+                responses.put(optimization, defaultRow);
+            }
+            return responses;
+        }
+
+        // Fastest Safest Route
+        PathWrapper bestPath = paths.get(0);
+        responses.put("safety", writeOutput(route, "Safe", "safe-fastest", od_id, bestPath, getBeauty(bestPath)));
+
+        return responses;
+    }
+
+
 
 
     public HashMap<String, String> process_route(int route) {
@@ -549,7 +626,6 @@ public class parallelKSP {
         // Score each route on beauty to determine most beautiful
         int j = 0;
         float bestscore = -1000;
-        //float originalscore = getBeauty(paths.get(0));
         int routeidx = -1;
         for (PathWrapper path : paths) {
             float score = getBeauty(path);
@@ -559,35 +635,7 @@ public class parallelKSP {
             }
             j++;
         }
-        //System.out.println("Most beautiful route: " + routeidx);
         responses.put("beauty", writeOutput(route, "Beau", "beauty", od_id, paths.get(routeidx), bestscore));
-        //float maxBeauty = bestscore;
-
-        /*
-        // Find least-beautiful route within similar distance constraints
-        double beautyDistance = paths.get(routeidx).getDistance();
-        j = 0;
-        bestscore = 1000;
-        routeidx = -1;
-        double uglydistance;
-        for (PathWrapper path : paths) {
-            //if (j < capPathsPerMVT) {
-            uglydistance = path.getDistance();
-            if (uglydistance / beautyDistance < 1.05 && uglydistance / beautyDistance > 0.95) {
-                float score = getBeauty(path);
-                if (score < bestscore) {
-                    bestscore = score;
-                    routeidx = j;
-                }
-            }
-            j++;
-            //} else {
-            //    break;
-            //}
-        }
-        responses.put("ugly", writeOutput(route, "Wrst", "ugly", od_id, paths.get(routeidx), bestscore)));
-
-        */
 
         // Simplest Route
         j = 0;
@@ -601,100 +649,11 @@ public class parallelKSP {
             }
             j++;
         }
-        //System.out.println("Simplest route: " + routeidx);
         responses.put("simple", writeOutput(route, "Simp", "simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx))));
-        //float minSimplicity = bestscore;
 
         // Fastest Route
         PathWrapper bestPath = paths.get(0);
         responses.put("fast", writeOutput(route, "Fast", "fastest", od_id, bestPath, getBeauty(bestPath)));
-
-        /*
-
-        // Beautifully simple route
-        j = 0;
-        bestscore = 0;
-        routeidx = 0;
-        float combined;
-        for (PathWrapper path : paths) {
-            combined = (minSimplicity / path.getSimplicity()) + (getBeauty(path) / maxBeauty);
-            if (combined > bestscore) {
-                bestscore = combined;
-                routeidx = j;
-            }
-            j++;
-        }
-        //System.out.println("Most beautiful-simple route: " + routeidx);
-        responses.put("besi", writeOutput(route, "BeSi", "beauty-simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
-
-        // Fewest # directions
-        j = 0;
-        bestscore = 10000;
-        routeidx = 0;
-        InstructionList il;
-        int numDirections;
-        for (PathWrapper path : paths) {
-            il = path.getInstructions();
-            numDirections = il.getSize();
-            if (numDirections < bestscore) {
-                bestscore = numDirections;
-                routeidx = j;
-            }
-            j++;
-        }
-        //System.out.println("Min directions route: " + routeidx);
-        responses.put("mindirections", writeOutput(route, "MnDi", "mindirections", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx)), getNumCTs(paths.get(routeidx))));
-
-
-        // Shortest Route
-        req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
-                setWeighting("shortest").
-                setVehicle("car").
-                setLocale(Locale.US).
-                setAlgorithm("dijkstrabi");
-        rsp = hopper.route(req);
-
-        // first check for errors
-        if (rsp.hasErrors()) {
-            // handle them!
-            System.out.println(rsp.getErrors().toString());
-            System.out.println(route + ": Skipping shortest path.");
-            responses.put("short", defaultRow);
-        } else {
-            // Get shortest path
-            bestPath = rsp.getBest();
-            beauty = getBeauty(bestPath);
-            responses.put("short", writeOutput(route, "Shrt", "shortest", od_id, bestPath, beauty, getNumCTs(bestPath)));
-        }
-
-        // Alternative Route
-        req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
-                setWeighting("fastest").
-                setVehicle("car").
-                setLocale(Locale.US).
-                setAlgorithm("alternative_route");
-        rsp = hopper.route(req);
-
-        // first check for errors
-        if (rsp.hasErrors()) {
-            // handle them!
-            System.out.println(rsp.getErrors().toString());
-            responses.put("alt", defaultRow.replace("main", "alternative"));
-
-        } else {
-            // Get Alt Routes (should be 2, of which first is the fastest path)
-            paths = rsp.getAll();
-            if (paths.size() < 2) {
-                System.out.println(route + ": Did not return an alternative path.");
-                responses.put("alt", defaultRow.replace("main", "alternative"));
-            } else {
-                PathWrapper altpath = paths.get(1);
-                beauty = getBeauty(altpath);
-                responses.put("alt", writeOutput(route, "Altn", "altn", od_id, altpath, beauty, getNumCTs(altpath)));
-            }
-        }
-
-        */
 
         return responses;
     }
@@ -708,7 +667,7 @@ public class parallelKSP {
         //System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
         //String city = args[0];
         //String odtype = args[1];
-        parallelKSP ksp = new parallelKSP(city, odtype);
+        AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities(city, odtype);
         boolean matchexternal = false;
         boolean getghroutes = true;
 
@@ -742,7 +701,6 @@ public class parallelKSP {
             ksp.setDataSources();
             ksp.getGridValues();
             ksp.prepareGraphHopper();
-            //ksp.getGridCTs();
             ksp.setODPairs();
             ksp.process_routes();  // get Graphhopper routes
         }
