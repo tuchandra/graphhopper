@@ -27,8 +27,8 @@ public class AlternativeRoutingExternalities {
 
     private GraphHopper hopper;
     private MapMatching mapMatching;
-    private String city;
-    private String route_type;
+    private String city;  // not used
+    private String route_type;  // not used
     private String bannedGridCellsFn;
     private HashMap<String, FileWriter> outputFiles;
     private HashMap<String, Integer> gvHeaderMap;
@@ -38,6 +38,8 @@ public class AlternativeRoutingExternalities {
     private ArrayList<float[]> inputPoints = new ArrayList<>();
     private ArrayList<String> id_to_points = new ArrayList<>();
 
+
+    // This is kind of a shitshow, clean up eventually
     private String dataFolder = "C:/Users/Tushar/CS/routing-project/route-externalities/main/data/";
     private String osmFile = dataFolder;
 //    private String graphFolder = dataFolder;
@@ -57,10 +59,7 @@ public class AlternativeRoutingExternalities {
 
     public AlternativeRoutingExternalities() {
         this.outputFiles = new HashMap<>();
-        optimizations.add("beauty");
-        optimizations.add("simple");
-        optimizations.add("fast");
-        optimizations.add("safety");
+        optimizations.add("fastest");
         optimizations.add("traffic");
     }
 
@@ -70,9 +69,10 @@ public class AlternativeRoutingExternalities {
         outputPointsFN = dataFolder + "chicago_routes_gh.csv";
 
         // This is where some kind of traffic CSV will go
+        // if (IntelliJ.doesNotHateYou() && Java.doesNotSuck()) do.things();
 
         // block never hit, just leave it here lol
-        // jk it errors
+        // jk it errors comment it out
 /*        if (city.equals("nyc")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc_noch";
@@ -165,7 +165,7 @@ public class AlternativeRoutingExternalities {
 
     }
 
-    // This one should work too?
+    // what the FUCK is this method
     public String writeOutput(int i, String optimized, String name, String od_id, PathWrapper bestPath, float score) {
 
         // points, distance in meters and time in seconds (convert from ms) of the full path
@@ -207,6 +207,9 @@ public class AlternativeRoutingExternalities {
     }
 
     public float getBeauty(PathWrapper path) {
+        // it's easier to stub this than replace it.
+        if (1 == 1) return 11111;
+
         HashSet<String> roundedPoints = path.roundPoints();
         float score = 0;
         for (String pt : roundedPoints) {
@@ -231,6 +234,7 @@ public class AlternativeRoutingExternalities {
         mapMatching.setMeasurementErrorSigma(100);
     }
 
+    // This is used in getPaths
     public PathWrapper GPXToPath(ArrayList<GPXEntry> gpxEntries) {
         PathWrapper matchGHRsp = new PathWrapper();
         try {
@@ -245,6 +249,7 @@ public class AlternativeRoutingExternalities {
         return matchGHRsp;
     }
 
+    // This is used in the route-matching section
     public void PointsToPath(String fin, String fout) throws IOException {
         Scanner sc_in = new Scanner(new File(fin));
         String[] pointsHeader = sc_in.nextLine().split(",");
@@ -346,6 +351,7 @@ public class AlternativeRoutingExternalities {
         sc_out.close();
     }
 
+    // This is used in PointsToPath
     public HashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
                                             HashMap<String, String> routeNames, String optimized) {
 
@@ -390,11 +396,13 @@ public class AlternativeRoutingExternalities {
         AtomicInteger num_processed = new AtomicInteger();
         int num_odpairs = id_to_points.size();
 
+        // results is designed to be {optimization : {id : route}}
         HashMap<String, HashMap<String, String>> results = new HashMap<>();
         for (String optimization : optimizations) {
             results.put(optimization, new HashMap<String, String>());
         }
 
+        // this is never hit, just leave it here
         if (optimizations.contains("safety")) {
             // initialize banned edges
             GHRequest req = new GHRequest(inputPoints.get(0)[0], inputPoints.get(0)[1],
@@ -406,7 +414,6 @@ public class AlternativeRoutingExternalities {
             GHResponse rsp = hopper.route(req);
         }
 
-
         for (String od_id : id_to_points) {
             System.out.println("Processing: " + od_id);
             int route = id_to_points.indexOf(od_id);
@@ -416,7 +423,8 @@ public class AlternativeRoutingExternalities {
             }
 
             int i = num_processed.incrementAndGet();
-            if (i % 50 == 0) {
+//            if (i % 50 == 0) {
+            if (1 == 1) {
                 System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
             }
         }
@@ -436,17 +444,20 @@ public class AlternativeRoutingExternalities {
         HashMap<String, String> responses = new HashMap<>();
 
         // Get Routes
+        System.out.println("Looking for routes.");
         points = inputPoints.get(route);
         od_id = id_to_points.get(route);
         GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                 setWeighting("fastest").
                 setVehicle("car").
                 setLocale(Locale.US).
-                setAlgorithm("ksp");
+                setAlgorithm("ksp");  // where is this documented?
         GHResponse rsp = hopper.route(req);
 
+        // this is in case of an error or something
         String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
                 + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1" + System.getProperty("line.separator");
+        System.out.println(defaultRow);
 
         // first check for errors
         if (rsp.hasErrors()) {
@@ -459,8 +470,9 @@ public class AlternativeRoutingExternalities {
             return responses;
         }
 
-        // Get All Routes (up to 10K right now)
+        // Get All Routes (up to 10K right now) -- getBest() still generates them all, so not faster
         List<PathWrapper> paths = rsp.getAll();
+        System.out.println("Got all the routes!");
 
         if (paths.size() == 0) {
             System.out.println(route + ": No paths - skipping.");
@@ -470,6 +482,7 @@ public class AlternativeRoutingExternalities {
             return responses;
         }
 
+/*
         // Score each route on beauty to determine most beautiful
         int j = 0;
         float bestscore = -1000;
@@ -497,12 +510,18 @@ public class AlternativeRoutingExternalities {
             j++;
         }
         responses.put("simple", writeOutput(route, "Simp", "simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx))));
+*/
+
+//        responses.put("beauty", defaultRow);
+//        responses.put("simple", defaultRow);
 
         // Fastest Route
         PathWrapper bestPath = paths.get(0);
-        responses.put("fast", writeOutput(route, "Fast", "fastest", od_id, bestPath, getBeauty(bestPath)));
+        responses.put("fastest", writeOutput(route, "Fast", "fastest", od_id, bestPath, getBeauty(bestPath)));
 
+/*
         // Safety Route
+        // No idea what setWeighting("safest_fastest") is supposed to do
         req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                 setWeighting("safest_fastest").
                 setVehicle("car").
@@ -531,6 +550,12 @@ public class AlternativeRoutingExternalities {
         // Fastest Safest Route
         bestPath = paths.get(0);
         responses.put("safety", writeOutput(route, "Safe", "safe-fastest", od_id, bestPath, getBeauty(bestPath)));
+*/
+
+//        responses.put("safety", defaultRow);
+
+        // traffic
+        responses.put("traffic", defaultRow);
 
         return responses;
     }
@@ -578,7 +603,7 @@ public class AlternativeRoutingExternalities {
 //            ksp.getGridValues();  // Don't do anything here yet
             ksp.prepareGraphHopper();
             ksp.setODPairs();
-            // ksp.process_routes();
+            ksp.process_routes();
         }
     }
 }
