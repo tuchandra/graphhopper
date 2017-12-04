@@ -16,7 +16,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+// import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -37,43 +37,43 @@ public class AlternativeRoutingExternalities {
     private ArrayList<String> gridValuesFNs = new ArrayList<>();
     private ArrayList<float[]> inputPoints = new ArrayList<>();
     private ArrayList<String> id_to_points = new ArrayList<>();
-    private String osmFile = "./reader-osm/files/";
+
+    private String dataFolder = "C:/Users/Tushar/CS/routing-project/route-externalities/main/data/";
+    private String osmFile = dataFolder;
+//    private String graphFolder = dataFolder;
+    private String inputPointsFN = dataFolder;
+    private String outputPointsFN = dataFolder;
+
+//    private String osmFile = "./reader-osm/files/";
     private String graphFolder = "./reader-osm/target/tmp/";
-    private String inputPointsFN = "../data/intermediate/";
-    private String outputPointsFN = "../data/routes/";
+//    private String inputPointsFN = "../data/intermediate/";
+//    private String outputPointsFN = "../data/routes/";
+
     private String gvfnStem = "../data/intermediate/";
     private String gctfnStem = "../data/intermediate/";
     private String outputheader = "ID,name,polyline_points,total_time_in_sec,total_distance_in_meters," +
             "number_of_steps,maneuvers,beauty,simplicity,pctNonHighwayTime,pctNonHighwayDist,pctNeiTime,pctNeiDist" +
             System.getProperty("line.separator");
 
-    public AlternativeRoutingExternalities(String city, String route_type) {
-        this.city = city;
-        this.route_type = route_type;
+    public AlternativeRoutingExternalities() {
         this.outputFiles = new HashMap<>();
         optimizations.add("beauty");
         optimizations.add("simple");
         optimizations.add("fast");
         optimizations.add("safety");
-    }
-
-    public void setCity(String city) {
-        this.city = city;
-    }
-
-    public void setRouteType(String route_type) {
-        this.route_type = route_type;
+        optimizations.add("traffic");
     }
 
     public void setDataSources() throws Exception {
-        if (city.equals("sf")) {
-            osmFile = osmFile + "san-francisco-bay_california.osm.pbf";
-            graphFolder = graphFolder + "ghosm_sf_noch";
-            inputPointsFN = inputPointsFN + "sf_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "sf_" + route_type + "_gh_routes.csv";
-            gridValuesFNs.add(gvfnStem + "06075_empath_grid.csv");
-            bannedGridCellsFn = gctfnStem + "06075_banned_grid_cells.csv";
-        } else if (city.equals("nyc")) {
+        osmFile = osmFile + "chicago_illinois.osm.pbf";
+        inputPointsFN = dataFolder + "small_chicago_od_pairs.csv";
+        outputPointsFN = dataFolder + "chicago_routes_gh.csv";
+
+        // This is where some kind of traffic CSV will go
+
+        // block never hit, just leave it here lol
+        // jk it errors
+/*        if (city.equals("nyc")) {
             osmFile = osmFile + "new-york_new-york.osm.pbf";
             graphFolder = graphFolder + "ghosm_nyc_noch";
             inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
@@ -84,25 +84,11 @@ public class AlternativeRoutingExternalities {
             gridValuesFNs.add(gvfnStem + "36081_empath_grid.csv");
             gridValuesFNs.add(gvfnStem + "36085_empath_grid.csv");
             bannedGridCellsFn = gctfnStem + "nyc_banned_grid_cells.csv";
-        } else if (city.equals("lon")) {
-            osmFile = osmFile + "london_england.osm.pbf";
-            graphFolder = graphFolder + "ghosm_lon_noch";
-            inputPointsFN = inputPointsFN + "lon_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "lon_" + route_type + "_gh_routes.csv";
-            gridValuesFNs.add(gvfnStem + "LONDON_logfractionempath_ft.csv");
-            bannedGridCellsFn = "";
-        } else if (city.equals("man")) {
-            osmFile = osmFile + "manila_philippines.osm.pbf";
-            graphFolder = graphFolder + "ghosm_man_noch";
-            inputPointsFN = inputPointsFN + "man_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "man_" + route_type + "_gh_routes.csv";
-            gridValuesFNs.add(gvfnStem + "MANILA_logfractionempath_ft.csv");
-            bannedGridCellsFn = "";
-        } else {
-            throw new Exception("Invalid Parameters: city must be of 'sf','nyc', 'man', or 'sin' and route_type of 'rand' or 'taxi'");
         }
+*/
     }
 
+    // This function shouldn't ever be called yet / will break if you try
     public void getGridValues() throws Exception {
         gvHeaderMap = new HashMap<>();
         gridBeauty = new HashMap<>();
@@ -139,6 +125,7 @@ public class AlternativeRoutingExternalities {
         }
     }
 
+    // This one should work
     public void setODPairs() throws Exception {
         for (String optimization : optimizations) {
             outputFiles.put(optimization, new FileWriter(outputPointsFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
@@ -159,9 +146,12 @@ public class AlternativeRoutingExternalities {
         float idx = 0;
         System.out.println("Input data points header: " + header);
         while (sc_in.hasNext()) {
-            idx = idx + 1;
+            // Every other line is empty, because Windows
             String line = sc_in.nextLine();
             String[] vals = line.split(",");
+            if (vals.length <= 1) continue;
+
+            idx = idx + 1;
             od_id = vals[0];
             loF = Float.valueOf(vals[1]);
             laF = Float.valueOf(vals[2]);
@@ -175,6 +165,7 @@ public class AlternativeRoutingExternalities {
 
     }
 
+    // This one should work too?
     public String writeOutput(int i, String optimized, String name, String od_id, PathWrapper bestPath, float score) {
 
         // points, distance in meters and time in seconds (convert from ms) of the full path
@@ -346,7 +337,7 @@ public class AlternativeRoutingExternalities {
         }
         sc_in.close();
 
-        ConcurrentHashMap<String, String> results = getPaths(pointsLists, routeNames, optimized);
+        HashMap<String, String> results = getPaths(pointsLists, routeNames, optimized);
         FileWriter sc_out = new FileWriter(fout, true);
         sc_out.write(outputheader);
         for (String result : results.values()) {
@@ -355,15 +346,15 @@ public class AlternativeRoutingExternalities {
         sc_out.close();
     }
 
-    public ConcurrentHashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
-                                                      HashMap<String, String> routeNames, String optimized) {
+    public HashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
+                                            HashMap<String, String> routeNames, String optimized) {
 
         AtomicInteger num_processed = new AtomicInteger();
         int num_routes = pointLists.size();
         Set<String> routeIDs = pointLists.keySet();
 
-        ConcurrentHashMap<String, String> results = new ConcurrentHashMap<>();
-        routeIDs.parallelStream().forEach(routeID -> {
+        HashMap<String, String> results = new HashMap<>();
+        for (String routeID : routeIDs) {
             System.out.println("Processing: " + routeID);
             int i = num_processed.incrementAndGet();
             PathWrapper path = GPXToPath(pointLists.get(routeID));
@@ -374,8 +365,8 @@ public class AlternativeRoutingExternalities {
             if (i % 50 == 0) {
                 System.out.println("\t\t" + i + " of " + num_routes + " routes matched.");
             }
+
         }
-        );
 
         return results;
     }
@@ -387,7 +378,7 @@ public class AlternativeRoutingExternalities {
         // where to store graphhopper files?
         hopper.setGraphHopperLocation(graphFolder);
         hopper.setEncodingManager(new EncodingManager("car"));
-        hopper.setBannedGridCellsFn(bannedGridCellsFn);
+//        hopper.setBannedGridCellsFn(bannedGridCellsFn);
 
         // now this can take minutes if it imports or a few seconds for loading
         // of course this is dependent on the area you import
@@ -399,9 +390,9 @@ public class AlternativeRoutingExternalities {
         AtomicInteger num_processed = new AtomicInteger();
         int num_odpairs = id_to_points.size();
 
-        ConcurrentHashMap<String, ConcurrentHashMap<String, String>> results = new ConcurrentHashMap<>();
+        HashMap<String, HashMap<String, String>> results = new HashMap<>();
         for (String optimization : optimizations) {
-            results.put(optimization, new ConcurrentHashMap<>());
+            results.put(optimization, new HashMap<String, String>());
         }
 
         if (optimizations.contains("safety")) {
@@ -416,19 +407,19 @@ public class AlternativeRoutingExternalities {
         }
 
 
-        id_to_points.parallelStream().forEach(od_id -> {
+        for (String od_id : id_to_points) {
             System.out.println("Processing: " + od_id);
             int route = id_to_points.indexOf(od_id);
             HashMap<String, String> routes = process_route(route);
             for (String optimization : optimizations) {
                 results.get(optimization).put(od_id, routes.getOrDefault(optimization, "FAILURE"));
             }
+
             int i = num_processed.incrementAndGet();
             if (i % 50 == 0) {
                 System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
             }
         }
-        );
 
         for (String optimization : optimizations) {
             for (String result : results.get(optimization).values()) {
@@ -545,19 +536,17 @@ public class AlternativeRoutingExternalities {
     }
 
     public static void main(String[] args) throws Exception {
-
-        // PBFs from: https://mapzen.com/data/metro-extracts/
+        // Get PBFs from: https://mapzen.com/data/metro-extracts/
 
         // For setting # of cores to use
         //System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
 
-        String city = "sf // args[0];  // sf, nyc, lon, man
-        String odtype = "rand"; // args[1];  // rand, taxi
         boolean matchexternal = false;
         boolean getghroutes = true;
 
-        AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities(city, odtype);
+        AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities();
 
+/*
         if (matchexternal) {
             ksp.setDataSources();
             ksp.getGridValues();
@@ -575,20 +564,21 @@ public class AlternativeRoutingExternalities {
             for (String platform : platforms) {
                 for (String condition : conditions) {
                     for (String routetype : routetypes) {
-                        ksp.PointsToPath(inputfolder + city + "_" + odtype + "_" + platform + "_" + condition +
+                        ksp.PointsToPath(inputfolder + city + "_" + platform + "_" + condition +
                                 "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" +
                                 platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
                     }
                 }
             }
         }
+*/
 
         if (getghroutes) {
             ksp.setDataSources();
-            ksp.getGridValues();
+//            ksp.getGridValues();  // Don't do anything here yet
             ksp.prepareGraphHopper();
             ksp.setODPairs();
-            ksp.process_routes();
+            // ksp.process_routes();
         }
     }
 }
