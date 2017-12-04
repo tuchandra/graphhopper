@@ -402,7 +402,7 @@ public class AlternativeRoutingExternalities {
             results.put(optimization, new HashMap<String, String>());
         }
 
-        // this is never hit, just leave it here
+/*        // this is never hit, just leave it here
         if (optimizations.contains("safety")) {
             // initialize banned edges
             GHRequest req = new GHRequest(inputPoints.get(0)[0], inputPoints.get(0)[1],
@@ -413,6 +413,7 @@ public class AlternativeRoutingExternalities {
                     setAlgorithm("dijkstrabi");
             GHResponse rsp = hopper.route(req);
         }
+*/
 
         for (String od_id : id_to_points) {
             System.out.println("Processing: " + od_id);
@@ -423,10 +424,7 @@ public class AlternativeRoutingExternalities {
             }
 
             int i = num_processed.incrementAndGet();
-//            if (i % 50 == 0) {
-            if (1 == 1) {
-                System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
-            }
+            System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
         }
 
         for (String optimization : optimizations) {
