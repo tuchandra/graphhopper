@@ -88,6 +88,17 @@
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
                 </configuration>
+
+                <executions> <!-- this appears to make the thing with dependencies -->
+                    <execution>
+                        <id>make-assembly</id>
+                        <!-- bind to verify and not package to pass integration tests before creating assemblies -->
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
