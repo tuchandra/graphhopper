@@ -195,6 +195,13 @@
             <version>4.12</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.graphhopper</groupId>
+            <artifactId>graphhopper-map-matching-core</artifactId>
+            <!-- or 0.9-SNAPSHOT for the unstable -->
+            <version>0.8.2</version>
+        </dependency>
     </dependencies>
 
     <distributionManagement>
