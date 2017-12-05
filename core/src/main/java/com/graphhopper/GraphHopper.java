@@ -1062,14 +1062,6 @@ public class GraphHopper implements GraphHopperAPI {
                 }
             }
             return new AvoidanceWeighting(encoder, hintsMap, bannedEdges);
-        } else if ("traffic".equalsIgnoreCase(weighting)) {
-            String trafficFN = "../routing/main/data/traffic.csv";
-            System.out.println("setting up traffic weighting");
-            try {
-                return new TrafficWeighting(encoder, trafficFN);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
         }
 
         throw new IllegalArgumentException("weighting " + weighting + " not supported");
