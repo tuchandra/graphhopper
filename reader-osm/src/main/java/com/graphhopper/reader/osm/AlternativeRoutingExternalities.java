@@ -40,7 +40,7 @@ public class AlternativeRoutingExternalities {
 
 
     // This is kind of a shitshow, clean up eventually
-    private String dataFolder = "C:/Users/Tushar/CS/routing-project/route-externalities/main/data/";
+    private String dataFolder = "C:/Users/Tushar/CS/routing-project/routing/main/data/";
     private String osmFile = dataFolder;
 //    private String graphFolder = dataFolder;
     private String inputPointsFN = dataFolder;
@@ -70,22 +70,6 @@ public class AlternativeRoutingExternalities {
 
         // This is where some kind of traffic CSV will go
         // if (IntelliJ.doesNotHateYou() && Java.doesNotSuck()) do.things();
-
-        // block never hit, just leave it here lol
-        // jk it errors comment it out
-/*        if (city.equals("nyc")) {
-            osmFile = osmFile + "new-york_new-york.osm.pbf";
-            graphFolder = graphFolder + "ghosm_nyc_noch";
-            inputPointsFN = inputPointsFN + "nyc_" + route_type + "_od_pairs.csv";
-            outputPointsFN = outputPointsFN + "nyc_" + route_type + "_gh_routes.csv";
-            gridValuesFNs.add(gvfnStem + "36005_empath_grid.csv");
-            gridValuesFNs.add(gvfnStem + "36047_empath_grid.csv");
-            gridValuesFNs.add(gvfnStem + "36061_empath_grid.csv");
-            gridValuesFNs.add(gvfnStem + "36081_empath_grid.csv");
-            gridValuesFNs.add(gvfnStem + "36085_empath_grid.csv");
-            bannedGridCellsFn = gctfnStem + "nyc_banned_grid_cells.csv";
-        }
-*/
     }
 
     // This function shouldn't ever be called yet / will break if you try
@@ -436,124 +420,73 @@ public class AlternativeRoutingExternalities {
     }
 
     public HashMap<String, String> process_route(int route) {
-        // Loop through origin-destination pairs, processing each one for beauty, non-beautiful matched, fastest, and simplest
-        float[] points;
-        String od_id;
+        // Loop through origin-destination pairs, processing each one for
+        // ordinary fastest and traffic-optimized routes
+        float[] points = inputPoints.get(route);
+        String od_id = id_to_points.get(route);
+
         HashMap<String, String> responses = new HashMap<>();
 
-        // Get Routes
-        System.out.println("Looking for routes.");
-        points = inputPoints.get(route);
-        od_id = id_to_points.get(route);
+        // Default row for the CSVs, in case of an error or something
+        String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
+                + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1" + System.getProperty("line.separator");
+
+        // Get fastest routes
+        System.out.println("Looking for fastest routes.");
         GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
                 setWeighting("fastest").
                 setVehicle("car").
                 setLocale(Locale.US).
-                setAlgorithm("ksp");  // where is this documented?
+                setAlgorithm("ksp");
         GHResponse rsp = hopper.route(req);
 
-        // this is in case of an error or something
-        String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
-                + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1" + System.getProperty("line.separator");
-        System.out.println(defaultRow);
-
-        // first check for errors
+        // TODO FACTOR THIS CODE BETTER
+        // Check for errors, and handle them if so
         if (rsp.hasErrors()) {
-            // handle them!
             System.out.println(rsp.getErrors().toString());
             System.out.println(route + ": Error - skipping.");
-            for (String optimization : optimizations) {
-                responses.put(optimization, defaultRow);
-            }
-            return responses;
+            responses.put("fastest", defaultRow);
         }
 
-        // Get All Routes (up to 10K right now) -- getBest() still generates them all, so not faster
         List<PathWrapper> paths = rsp.getAll();
-        System.out.println("Got all the routes!");
+        System.out.println("Got all the fastest routes!");
 
         if (paths.size() == 0) {
             System.out.println(route + ": No paths - skipping.");
-            for (String optimization : optimizations) {
-                responses.put(optimization, defaultRow);
-            }
-            return responses;
+            responses.put("fastest", defaultRow);
         }
 
-/*
-        // Score each route on beauty to determine most beautiful
-        int j = 0;
-        float bestscore = -1000;
-        int routeidx = -1;
-        for (PathWrapper path : paths) {
-            float score = getBeauty(path);
-            if (score > bestscore) {
-                bestscore = score;
-                routeidx = j;
-            }
-            j++;
-        }
-        responses.put("beauty", writeOutput(route, "Beau", "beauty", od_id, paths.get(routeidx), bestscore));
-
-        // Simplest Route
-        j = 0;
-        bestscore = 10000;
-        routeidx = 0;
-        for (PathWrapper path : paths) {
-            int score = path.getSimplicity();
-            if (score < bestscore) {
-                bestscore = score;
-                routeidx = j;
-            }
-            j++;
-        }
-        responses.put("simple", writeOutput(route, "Simp", "simple", od_id, paths.get(routeidx), getBeauty(paths.get(routeidx))));
-*/
-
-//        responses.put("beauty", defaultRow);
-//        responses.put("simple", defaultRow);
-
-        // Fastest Route
         PathWrapper bestPath = paths.get(0);
         responses.put("fastest", writeOutput(route, "Fast", "fastest", od_id, bestPath, getBeauty(bestPath)));
 
-/*
-        // Safety Route
-        // No idea what setWeighting("safest_fastest") is supposed to do
-        req = new GHRequest(points[0], points[1], points[2], points[3]).  // latFrom, lonFrom, latTo, lonTo
-                setWeighting("safest_fastest").
+        // Get traffic routes
+        System.out.println("Looking for routes under traffic.");
+        req = new GHRequest(points[0], points[1], points[2], points[3]).
+                setWeighting("traffic").
                 setVehicle("car").
                 setLocale(Locale.US).
-                setAlgorithm("dijkstrabi");
+                setAlgorithm("ksp");
         rsp = hopper.route(req);
 
-        // first check for errors
+        // Check for errors, and handle them if so
         if (rsp.hasErrors()) {
-            // handle them!
             System.out.println(rsp.getErrors().toString());
             System.out.println(route + ": Error - skipping.");
-            responses.put("safety", defaultRow);
+            responses.put("traffic", defaultRow);
             return responses;
         }
 
-        // Get paths (should be one)
         paths = rsp.getAll();
+        System.out.println("Got all the traffic-optimized routes!");
 
         if (paths.size() == 0) {
             System.out.println(route + ": No paths - skipping.");
-            responses.put("safety", defaultRow);
+            responses.put("traffic", defaultRow);
             return responses;
         }
 
-        // Fastest Safest Route
         bestPath = paths.get(0);
-        responses.put("safety", writeOutput(route, "Safe", "safe-fastest", od_id, bestPath, getBeauty(bestPath)));
-*/
-
-//        responses.put("safety", defaultRow);
-
-        // traffic
-        responses.put("traffic", defaultRow);
+        responses.put("traffic", writeOutput(route, "Traffic", "traffic", od_id, bestPath, getBeauty(bestPath)));
 
         return responses;
     }
