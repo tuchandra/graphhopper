@@ -19,13 +19,12 @@ package com.graphhopper.reader.osm;
 
 import com.graphhopper.routing.weighting.*;
 import com.graphhopper.routing.util.*;
-import com.graphhopper.util.EdgeIteratorState;
 
 import java.io.FileNotFoundException;
 
 /**
  * Simplified entry to OpenStreetMap data, but using traffic weighting.
- * @author Tushar
+ * @author Tushar Chandra
  */
 public class TrafficHopperOSM extends GraphHopperOSM {
     @Override
