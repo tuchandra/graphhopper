@@ -10,8 +10,10 @@ import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.HintsMap;
+import com.graphhopper.routing.weighting.TrafficWeighting;
 import com.graphhopper.util.*;
 
+import javax.print.DocFlavor;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -362,13 +364,10 @@ public class AlternativeRoutingExternalities {
     }
 
     public void prepareGraphHopper() {
-        // create one GraphHopper instance
         hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
         hopper.setDataReaderFile(osmFile);
-        // where to store graphhopper files?
         hopper.setGraphHopperLocation(graphFolder);
         hopper.setEncodingManager(new EncodingManager("car"));
-//        hopper.setBannedGridCellsFn(bannedGridCellsFn);
 
         // now this can take minutes if it imports or a few seconds for loading
         // of course this is dependent on the area you import
@@ -418,6 +417,48 @@ public class AlternativeRoutingExternalities {
             outputFiles.get(optimization).close();
         }
     }
+
+
+
+/*
+    public String getBestRoute(GraphHopper hopper, String optimized, int route) {
+        float[] points = inputPoints.get(route);
+        String od_id = id_to_points.get(route);
+
+        // Default row for the response in case of an error or something
+        String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
+                + ")]\"," + "-1,-1,-1,[],-1,-1,-1,-1" + System.getProperty("line.separator");
+
+        System.out.println("Looking for best route.");
+
+        // Theoretically, the GH passed should already have the correct weighting
+        GHRequest req = new GHRequest(points[0], points[1], points[2], points[3]).
+                setVehicle("car").
+                setLocale(Locale.US).
+                setAlgorithm("ksp");
+        GHResponse rsp = hopper.route(req);
+
+        // Handle errors
+        if (rsp.hasErrors()) {
+            System.out.println(rsp.getErrors().toString());
+            System.out.println(route + ": Error - skipping.");
+            return defaultRow;
+        }
+
+        PathWrapper path;
+        try {
+            path = rsp.getBest();
+        } catch (RuntimeException e) {
+            System.out.println(route + ": No paths - skipping.");
+            return defaultRow;
+        }
+
+        System.out.println("Got the route!");
+        return writeOutput(route, optimized, optimized, od_id, path, -10000);
+    }
+
+*/
+
 
     public HashMap<String, String> process_route(int route) {
         // Loop through origin-destination pairs, processing each one for
@@ -499,8 +540,20 @@ public class AlternativeRoutingExternalities {
 
         boolean matchexternal = false;
         boolean getghroutes = true;
+//        boolean useTraffic = false;  // args[0]
 
         AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities();
+//        ksp.setDataSources();
+
+
+//        ksp.prepareGraphHopper();
+
+        if (getghroutes) {
+            ksp.setDataSources();
+            ksp.prepareGraphHopper();
+            ksp.setODPairs();
+            ksp.process_routes();
+        }
 
 /*
         if (matchexternal) {
@@ -529,12 +582,5 @@ public class AlternativeRoutingExternalities {
         }
 */
 
-        if (getghroutes) {
-            ksp.setDataSources();
-//            ksp.getGridValues();  // Don't do anything here yet
-            ksp.prepareGraphHopper();
-            ksp.setODPairs();
-            ksp.process_routes();
-        }
     }
 }

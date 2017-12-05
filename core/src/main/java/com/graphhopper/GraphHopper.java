@@ -1034,7 +1034,6 @@ public class GraphHopper implements GraphHopperAPI {
      */
     public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder) {
         String weighting = hintsMap.getWeighting().toLowerCase();
-        System.out.println(weighting);
 
         if (encoder.supports(GenericWeighting.class)) {
             DataFlagEncoder dataEncoder = (DataFlagEncoder) encoder;
@@ -1065,6 +1064,7 @@ public class GraphHopper implements GraphHopperAPI {
             return new AvoidanceWeighting(encoder, hintsMap, bannedEdges);
         } else if ("traffic".equalsIgnoreCase(weighting)) {
             String trafficFN = "../routing/main/data/traffic.csv";
+            System.out.println("setting up traffic weighting");
             try {
                 return new TrafficWeighting(encoder, trafficFN);
             } catch (FileNotFoundException e) {
