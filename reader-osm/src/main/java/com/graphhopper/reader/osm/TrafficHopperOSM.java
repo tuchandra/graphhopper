@@ -20,9 +20,12 @@ package com.graphhopper.reader.osm;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.weighting.*;
 import com.graphhopper.routing.util.*;
+import com.graphhopper.matching.MapMatching;
+import com.graphhopper.matching.MatchResult;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.util.Parameters;
+import com.sun.org.apache.xml.internal.security.algorithms.JCEMapper;
 
 import java.io.FileNotFoundException;
 
@@ -32,7 +35,9 @@ import java.io.FileNotFoundException;
  */
 public class TrafficHopperOSM extends GraphHopperOSM {
     public Weighting trafficWeighting;
+    public MapMatching mapMatching;
     private String trafficFN = "../routing/main/data/traffic.csv";
+
 
 
     /**
@@ -47,6 +52,7 @@ public class TrafficHopperOSM extends GraphHopperOSM {
                         .put("vehicle", "car"))
                 .build();
 
+        this.mapMatching = new MapMatching(this, algoOptions);
     }
 
     /**
@@ -67,9 +73,11 @@ public class TrafficHopperOSM extends GraphHopperOSM {
         if (this.trafficWeighting == null) {
             try {
                 prepareMapMatching();
-                LocationIndex locationIndex = this.getLocationIndex();
-                Graph graphStorage = this.getGraphHopperStorage();
-                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN, locationIndex, graphStorage);
+//                LocationIndex locationIndex = this.getLocationIndex();
+//                Graph graphStorage = this.getGraphHopperStorage();
+//                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN, locationIndex, graphStorage);
+
+                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN, mapMatching);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }

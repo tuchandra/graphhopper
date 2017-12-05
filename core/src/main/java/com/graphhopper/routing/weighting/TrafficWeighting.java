@@ -17,9 +17,13 @@
  */
 package com.graphhopper.routing.weighting;
 
+import com.graphhopper.matching.EdgeMatch;
+import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.HintsMap;
 import com.graphhopper.routing.util.EdgeFilter;
+import com.graphhopper.matching.MapMatching;
+import com.graphhopper.matching.MatchResult;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.GPXEntry;
@@ -51,13 +55,50 @@ public class TrafficWeighting implements Weighting {
 //    private final long headingPenaltyMillis;
 //    private final double maxSpeed;
 //    private HashSet<Integer> bannedEdges;
-    protected final FlagEncoder flagEncoder;
-    protected final Graph graphStorage;
-    protected final LocationIndex locationIndex;
+    protected FlagEncoder flagEncoder;
+    protected Graph graphStorage;
+    protected LocationIndex locationIndex;
+    protected MapMatching mapMatching;
 
     private static final String[] colors = new String[]{"green", "yellow", "red"};
     private static final double yellowSpeed = 15 * 1.609;  // 15 mph, but in km/h
     private static final double redSpeed = 5 * 1.609; // 5 mph, but in km/h
+
+
+    public TrafficWeighting(FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
+        this.flagEncoder = encoder;
+        this.mapMatching = mapMatching;
+
+        // Get traffic data from file
+        HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
+        trafficData = readTrafficPaths(trafficFN);
+        System.out.println("Reading traffic data from file.");
+
+        // For moderate and heavy traffic, find nearest edge to each road
+        ArrayList<ArrayList<GHPoint>> paths;
+        TIntHashSet visitedEdgeIDs = new TIntHashSet();
+
+        for (String color : colors) {
+            // Don't do anything with light traffic
+            if (color.equals("green")) continue;
+            paths = trafficData.get(color);
+
+            // Convert each path to a GPXEntry list, then match it
+            // and find the closest edge
+            for (ArrayList<GHPoint> path : paths) {
+                System.out.println("Processing: " + path.toString());
+                ArrayList<GPXEntry> pathGPX = new ArrayList<>();
+                for (GHPoint p : path) {
+                    // arbitrarily set time to 0
+                    pathGPX.add(new GPXEntry(p, 0));
+                }
+
+                MatchResult mr = mapMatching.doWork(pathGPX);
+                EdgeMatch match = mr.getEdgeMatches().get(0);
+            }
+        }
+    }
+
 
 
     /**
@@ -77,7 +118,7 @@ public class TrafficWeighting implements Weighting {
         trafficData = readTrafficCSV(trafficFN);
         System.out.println("Reading traffic data from file.");
 
-        // For moderate and heavy traffic, find nearest edge to each road segment
+        // For moderate and heavy traffic, find nearest edge to each road
         ArrayList<ArrayList<GHPoint>> segments;
         TIntHashSet visitedEdgeIDs = new TIntHashSet();
 
@@ -126,7 +167,7 @@ public class TrafficWeighting implements Weighting {
 
 
     /**
-     * Read traffic data from a CSV; return all segments;
+     * Read traffic data from a CSV; return all segments
      *
      * @param trafficFN file name for CSV of traffic data
      * @return information about where traffic is light/moderate/heavy
