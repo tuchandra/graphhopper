@@ -47,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.util.*;
@@ -1033,6 +1034,7 @@ public class GraphHopper implements GraphHopperAPI {
      */
     public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder) {
         String weighting = hintsMap.getWeighting().toLowerCase();
+        System.out.println(weighting);
 
         if (encoder.supports(GenericWeighting.class)) {
             DataFlagEncoder dataEncoder = (DataFlagEncoder) encoder;
@@ -1061,6 +1063,13 @@ public class GraphHopper implements GraphHopperAPI {
                 }
             }
             return new AvoidanceWeighting(encoder, hintsMap, bannedEdges);
+        } else if ("traffic".equalsIgnoreCase(weighting)) {
+            String trafficFN = "../routing/main/data/traffic.csv";
+            try {
+                return new TrafficWeighting(encoder, trafficFN);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
         }
 
         throw new IllegalArgumentException("weighting " + weighting + " not supported");
