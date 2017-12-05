@@ -19,16 +19,19 @@ package com.graphhopper.routing.weighting;
 
 import com.graphhopper.routing.util.FlagEncoder;
 import com.graphhopper.routing.util.HintsMap;
-import com.graphhopper.util.DouglasPeucker;
+import com.graphhopper.routing.util.EdgeFilter;
+import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.PMap;
-import com.graphhopper.util.Parameters.Routing;
-import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.GPXEntry;
+import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.storage.Graph;
+import com.graphhopper.storage.index.LocationIndex;
+import com.graphhopper.storage.index.QueryResult;
+import gnu.trove.map.hash.TByteIntHashMap;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -49,55 +52,97 @@ public class TrafficWeighting implements Weighting {
 //    private final double maxSpeed;
 //    private HashSet<Integer> bannedEdges;
     protected final FlagEncoder flagEncoder;
+    protected final Graph graphStorage;
+    protected final LocationIndex locationIndex;
 
     private static final String[] colors = new String[]{"green", "yellow", "red"};
+    private static final double yellowSpeed = 15 * 1.609;  // 15 mph, but in km/h
+    private static final double redSpeed = 5 * 1.609; // 5 mph, but in km/h
+
 
     /**
      * Initialize traffic-based weighting with data from a CSV.
      *
      * @param encoder Not sure what this is
      * @param trafficFN Filename for CSV of traffic data
+     * @param locationIndex Location index
      */
-    public TrafficWeighting(FlagEncoder encoder, String trafficFN) throws FileNotFoundException {
+    public TrafficWeighting(FlagEncoder encoder, String trafficFN, LocationIndex locationIndex, Graph storage) throws FileNotFoundException {
         this.flagEncoder = encoder;
+        this.graphStorage = storage;
+        this.locationIndex = locationIndex;
 
         // Get traffic data from file
-        HashMap<String, ArrayList<float[]>> trafficData;
+        HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
         trafficData = readTrafficCSV(trafficFN);
+        System.out.println("Reading traffic data from file.");
 
-        // For moderate and heavy traffic, find the nearest edge to each road segment
-        ArrayList<float[]> roadSegments;
+        // For moderate and heavy traffic, find nearest edge to each road segment
+        ArrayList<ArrayList<GHPoint>> segments;
+        TIntHashSet visitedEdgeIDs = new TIntHashSet();
+
         for (String color : colors) {
+            // Don't do anything with light traffic
             if (color.equals("green")) continue;
+            segments = trafficData.get(color);
 
-            roadSegments = trafficData.get(color);
-            for (float[] segment : roadSegments) {
-                System.out.println(Arrays.toString(segment));
+            // For each segment, look up the midpoint and find the edge
+            // closest to it. This can be improved by using the map
+            // matching component.
+            for (ArrayList<GHPoint> segment : segments) {
+                double midLat = (segment.get(0).lat + segment.get(1).lat) / 2.0;
+                double midLon = (segment.get(0).lon + segment.get(1).lon) / 2.0;
 
-                // does nothing right now
+                // Find closest edge
+                QueryResult qr = locationIndex.findClosest(midLat, midLon, EdgeFilter.ALL_EDGES);
+                if (!qr.isValid()) {
+                    System.out.println("No matching road found for entry " + segment.toString());
+                    continue;
+                }
+
+                // Check if we already visited this edge (wouldn't happen with
+                // map matcher)
+                int edgeID = qr.getClosestEdge().getEdge();
+                if (visitedEdgeIDs.contains(edgeID)) {
+                    System.out.println("Attempting to update weight for edge already hit " + edgeID);
+                    continue;
+                }
+
+                visitedEdgeIDs.add(edgeID);
+
+                // Update edge speed
+                EdgeIteratorState edge = storage.getEdgeIteratorState(edgeID, Integer.MIN_VALUE);
+                double oldSpeed = this.flagEncoder.getSpeed(edge.getFlags());
+                double newSpeed = (color == "yellow") ? yellowSpeed : redSpeed;
+                if (newSpeed != oldSpeed) {
+                    System.out.println("Editing weight for edge: " + edgeID);
+                    this.flagEncoder.setSpeed(edge.getFlags(), newSpeed);
+                }
             }
 
         }
 
     }
 
+
     /**
-     * Read traffic data from a CSV.
+     * Read traffic data from a CSV; return all segments;
      *
      * @param trafficFN file name for CSV of traffic data
      * @return information about where traffic is light/moderate/heavy
      */
-    private HashMap<String, ArrayList<float[]>> readTrafficCSV(String trafficFN) throws FileNotFoundException {
+    private HashMap<String, ArrayList<ArrayList<GHPoint>>> readTrafficCSV(String trafficFN) throws FileNotFoundException {
         // Open file and get header
         Scanner sc_in = new Scanner(new File(trafficFN));
         String header = sc_in.nextLine();
         System.out.println("Traffic data header: " + header);
 
         // Set up results -- green is light traffic, yellow is medium traffic,
-        // red is heavy traffic.
-        HashMap<String, ArrayList<float[]>> roads = new HashMap<>();
+        // red is heavy traffic. Each value will be a list of pairs, where
+        // each pair has an origin and destination of a road segment.
+        HashMap<String, ArrayList<ArrayList<GHPoint>>> segments = new HashMap<>();
         for (String color : colors) {
-            roads.put(color, new ArrayList<float[]>());
+            segments.put(color, new ArrayList<ArrayList<GHPoint>>());
         }
 
         String color;
@@ -119,7 +164,83 @@ public class TrafficWeighting implements Weighting {
             destLon = Float.valueOf(vals[4]);
             destLat = Float.valueOf(vals[5]);
 
-            roads.get(color).add(new float[]{originLon, originLat, destLon, destLat});
+            // segment = (origin, dest) pair
+            ArrayList<GHPoint> segment = new ArrayList<>();
+            segment.add(new GHPoint(originLat, originLon));
+            segment.add(new GHPoint(destLat, destLon));
+
+            // store to the right color
+            segments.get(color).add(segment);
+        }
+
+        return segments;
+    }
+
+
+    /**
+     * Read traffic data from a CSV; return all paths
+     *
+     * @param trafficFN file name for CSV of traffic data
+     * @return information about where traffic is light/moderate/heavy
+     */
+    private HashMap<String, ArrayList<ArrayList<GHPoint>>> readTrafficPaths(String trafficFN) throws FileNotFoundException {
+        // Open file and get header
+        Scanner sc_in = new Scanner(new File(trafficFN));
+        String header = sc_in.nextLine();
+        System.out.println("Traffic data header: " + header);
+
+        // Set up results -- green is light traffic, yellow is medium traffic,
+        // red is heavy traffic. Each value will be a list of paths, which
+        // we itself is a List<GHPoint>.
+        HashMap<String, ArrayList<ArrayList<GHPoint>>> roads = new HashMap<>();
+        for (String color : colors) {
+            roads.put(color, new ArrayList<ArrayList<GHPoint>>());
+        }
+
+        String color;
+        float segmentID;
+        float originLon;
+        float originLat;
+        float destLon;
+        float destLat;
+
+        float currentSegmentID = -1;
+        ArrayList<GHPoint> currentPath = null;
+
+        while (sc_in.hasNext()) {
+            // Every other line is empty, because Windows
+            String line = sc_in.nextLine();
+            String[] vals = line.split(",");
+            if (vals.length <= 1) continue;
+
+            // Read the actual line information
+            segmentID = Float.valueOf(vals[0]);
+            color = vals[1];
+            originLon = Float.valueOf(vals[2]);
+            originLat = Float.valueOf(vals[3]);
+            destLon = Float.valueOf(vals[4]);
+            destLat = Float.valueOf(vals[5]);
+
+            // If we're starting a new segment, flush the current path and save it to the
+            // list. Then restart the path with the origin and destination. Update
+            // currentSegmentID with the ID of the new segment.
+            if (segmentID != currentSegmentID) {
+                if (currentPath != null) {  // it's null at the start, so catch that
+                    roads.get(color).add(currentPath);
+                }
+
+                currentPath = new ArrayList<>();
+                currentPath.add(new GHPoint(originLat, originLon));
+                currentPath.add(new GHPoint(destLat, destLon));
+
+                currentSegmentID = segmentID;
+            }
+
+            // Otherwise, continue the previous segment with the destination (since the origin
+            // is the destination of the previous line)
+            else {
+                currentPath.add(new GHPoint(destLat, destLon));
+            }
         }
 
         return roads;

@@ -4,8 +4,6 @@ import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.PathWrapper;
-import com.graphhopper.matching.MapMatching;
-import com.graphhopper.matching.MatchResult;
 import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.EncodingManager;
@@ -26,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AlternativeRoutingExternalities {
 
     private GraphHopper hopper;
-    private MapMatching mapMatching;
     private String city;  // not used
     private String route_type;  // not used
     private String bannedGridCellsFn;
