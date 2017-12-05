@@ -10,10 +10,8 @@ import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.HintsMap;
-import com.graphhopper.routing.weighting.TrafficWeighting;
 import com.graphhopper.util.*;
 
-import javax.print.DocFlavor;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -38,7 +36,7 @@ public class AlternativeRoutingExternalities {
     private ArrayList<String> optimizations = new ArrayList<>();
     private ArrayList<String> gridValuesFNs = new ArrayList<>();
     private ArrayList<float[]> inputPoints = new ArrayList<>();
-    private ArrayList<String> id_to_points = new ArrayList<>();
+    private ArrayList<String> idToPoints = new ArrayList<>();
 
 
     // This is kind of a shitshow, clean up eventually
@@ -61,11 +59,12 @@ public class AlternativeRoutingExternalities {
 
     public AlternativeRoutingExternalities() {
         this.outputFiles = new HashMap<>();
-        optimizations.add("fastest");
-        optimizations.add("traffic");
     }
 
-    public void setDataSources() throws Exception {
+    /**
+     * Set all the data sources (file names, mainly).
+     */
+    public void setDataSources() {
         osmFile = osmFile + "chicago_illinois.osm.pbf";
         inputPointsFN = dataFolder + "small_chicago_od_pairs.csv";
         outputPointsFN = dataFolder + "chicago_routes_gh.csv";
@@ -74,45 +73,44 @@ public class AlternativeRoutingExternalities {
         // if (IntelliJ.doesNotHateYou() && Java.doesNotSuck()) do.things();
     }
 
-    // This function shouldn't ever be called yet / will break if you try
-    public void getGridValues() throws Exception {
-        gvHeaderMap = new HashMap<>();
-        gridBeauty = new HashMap<>();
 
-        for (String fn : gridValuesFNs) {
-            try {
-                Scanner sc_in = new Scanner(new File(fn));
-                String[] gvHeader = sc_in.nextLine().split(",");
-                int i = 0;
-                for (String col : gvHeader) {
-                    gvHeaderMap.put(col, i);
-                    i++;
-                }
-                String line;
-                String[] vals;
-                String rc;
-                float beauty;
-                while (sc_in.hasNext()) {
-                    line = sc_in.nextLine();
-                    vals = line.split(",");
-                    try {
-                        rc = vals[gvHeaderMap.get("rid")] + "," + vals[gvHeaderMap.get("cid")];
-                        beauty = Float.valueOf(vals[gvHeaderMap.get("beauty")]);
-                        gridBeauty.put(rc, beauty);
-                    } catch (NullPointerException ex) {
-                        System.out.println(ex.getMessage());
-                        System.out.println(line);
-                        continue;
-                    }
-                }
-            } catch (IOException io) {
-                System.out.println(io + ": " + fn + " does not exist.");
-            }
+    /**
+     * Initialize GraphHopper for this class
+     *
+     * The type is accepted as a parameter here so that we don't have to
+     * constantly recalculate weights when sending requests, and can
+     * instead set them as we initialize hopper. This is why we created
+     * the class TrafficHopperOSM extending GraphHopperOSM, having the
+     * same functionality except for a different set of weights.
+     *
+     * @param type either "default" or "traffic"
+     */
+    public void prepareGraphHopper(String type) {
+        // Set GraphHopper instance differently based on desired type.
+        if (type.equals("traffic")) {
+            hopper = new TrafficHopperOSM().forDesktop().setCHEnabled(false);
+            optimizations.add("traffic");
+        } else {
+            hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
+            optimizations.add("fastest");
         }
+
+        hopper.setDataReaderFile(osmFile);
+        hopper.setGraphHopperLocation(graphFolder);
+        hopper.setEncodingManager(new EncodingManager("car"));
+
+        // This can take minutes (if it imports) or seconds (for loading).
+        // Of course, this is dependent on the area you import.
+        hopper.importOrLoad();
     }
 
-    // This one should work
+    /**
+     * Read the origin-destination pairs from a file.
+     *
+     * @throws Exception if bad stuff happens, idk
+     */
     public void setODPairs() throws Exception {
+        // Create an output file for each optimization
         for (String optimization : optimizations) {
             outputFiles.put(optimization, new FileWriter(outputPointsFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
         }
@@ -124,13 +122,15 @@ public class AlternativeRoutingExternalities {
         // Bring in origin-destination pairs for processing
         Scanner sc_in = new Scanner(new File(inputPointsFN));
         String header = sc_in.nextLine();
+        System.out.println("Input data points header: " + header);
+
         String od_id;
         float laF;
         float loF;
         float laT;
         float loT;
         float idx = 0;
-        System.out.println("Input data points header: " + header);
+
         while (sc_in.hasNext()) {
             // Every other line is empty, because Windows
             String line = sc_in.nextLine();
@@ -144,11 +144,11 @@ public class AlternativeRoutingExternalities {
             loT = Float.valueOf(vals[3]);
             laT = Float.valueOf(vals[4]);
             inputPoints.add(new float[]{laF, loF, laT, loT, idx});
-            id_to_points.add(od_id);
+            idToPoints.add(od_id);
         }
+
         int numPairs = inputPoints.size();
         System.out.println(numPairs + " origin-destination pairs.");
-
     }
 
     // what the FUCK is this method
@@ -190,6 +190,44 @@ public class AlternativeRoutingExternalities {
                 System.getProperty("line.separator");
 
 
+    }
+
+/*
+    // This function shouldn't ever be called yet / will break if you try
+    public void getGridValues() throws Exception {
+        gvHeaderMap = new HashMap<>();
+        gridBeauty = new HashMap<>();
+
+        for (String fn : gridValuesFNs) {
+            try {
+                Scanner sc_in = new Scanner(new File(fn));
+                String[] gvHeader = sc_in.nextLine().split(",");
+                int i = 0;
+                for (String col : gvHeader) {
+                    gvHeaderMap.put(col, i);
+                    i++;
+                }
+                String line;
+                String[] vals;
+                String rc;
+                float beauty;
+                while (sc_in.hasNext()) {
+                    line = sc_in.nextLine();
+                    vals = line.split(",");
+                    try {
+                        rc = vals[gvHeaderMap.get("rid")] + "," + vals[gvHeaderMap.get("cid")];
+                        beauty = Float.valueOf(vals[gvHeaderMap.get("beauty")]);
+                        gridBeauty.put(rc, beauty);
+                    } catch (NullPointerException ex) {
+                        System.out.println(ex.getMessage());
+                        System.out.println(line);
+                        continue;
+                    }
+                }
+            } catch (IOException io) {
+                System.out.println(io + ": " + fn + " does not exist.");
+            }
+        }
     }
 
     public float getBeauty(PathWrapper path) {
@@ -363,21 +401,18 @@ public class AlternativeRoutingExternalities {
         return results;
     }
 
-    public void prepareGraphHopper() {
-        hopper = new GraphHopperOSM().forDesktop().setCHEnabled(false);
-        hopper.setDataReaderFile(osmFile);
-        hopper.setGraphHopperLocation(graphFolder);
-        hopper.setEncodingManager(new EncodingManager("car"));
+*/
 
-        // now this can take minutes if it imports or a few seconds for loading
-        // of course this is dependent on the area you import
-        hopper.importOrLoad();
-    }
-
-    public void process_routes() throws Exception {
-
-        AtomicInteger num_processed = new AtomicInteger();
-        int num_odpairs = id_to_points.size();
+    /**
+     * Get all of the routes we are interested in.
+     *
+     * For every optimization and for every OD pair, find the best route
+     * and write it to the output file we care about.
+     * @throws Exception
+     */
+    public void processRoutes() throws Exception {
+        AtomicInteger numProcessed = new AtomicInteger();
+        int numODPairs = idToPoints.size();
 
         // results is designed to be {optimization : {id : route}}
         HashMap<String, HashMap<String, String>> results = new HashMap<>();
@@ -385,31 +420,23 @@ public class AlternativeRoutingExternalities {
             results.put(optimization, new HashMap<String, String>());
         }
 
-/*        // this is never hit, just leave it here
-        if (optimizations.contains("safety")) {
-            // initialize banned edges
-            GHRequest req = new GHRequest(inputPoints.get(0)[0], inputPoints.get(0)[1],
-                    inputPoints.get(0)[2], inputPoints.get(0)[3]).  // latFrom, lonFrom, latTo, lonTo
-                    setWeighting("safest_fastest").
-                    setVehicle("car").
-                    setLocale(Locale.US).
-                    setAlgorithm("dijkstrabi");
-            GHResponse rsp = hopper.route(req);
-        }
-*/
+        for (String odID : idToPoints) {
+            System.out.println("Processing: " + odID);
+            int route = idToPoints.indexOf(odID);
 
-        for (String od_id : id_to_points) {
-            System.out.println("Processing: " + od_id);
-            int route = id_to_points.indexOf(od_id);
-            HashMap<String, String> routes = process_route(route);
+            // Right now, we only have one optimization at a time. We set
+            // up getBestRoute to take the optimization as a parameter in
+            // case it's needed in the future.
             for (String optimization : optimizations) {
-                results.get(optimization).put(od_id, routes.getOrDefault(optimization, "FAILURE"));
+                String bestRoute = getBestRoute(optimization, route);
+                results.get(optimization).put(odID, bestRoute);
             }
 
-            int i = num_processed.incrementAndGet();
-            System.out.println(System.getProperty("line.separator") + i + " of " + num_odpairs + " o-d pairs processed." + System.getProperty("line.separator"));
+            int i = numProcessed.incrementAndGet();
+            System.out.println(System.getProperty("line.separator") + i + " of " + numODPairs + " o-d pairs processed." + System.getProperty("line.separator"));
         }
 
+        // Write everything to a file
         for (String optimization : optimizations) {
             for (String result : results.get(optimization).values()) {
                 outputFiles.get(optimization).write(result);
@@ -418,12 +445,15 @@ public class AlternativeRoutingExternalities {
         }
     }
 
-
-
-/*
-    public String getBestRoute(GraphHopper hopper, String optimized, int route) {
+    /**
+     * Given an optimization and a route ID, compute the best path
+     * @param optimization What the route is based off (not used)
+     * @param route route ID
+     * @return best path found
+     */
+    public String getBestRoute(String optimization, int route) {
         float[] points = inputPoints.get(route);
-        String od_id = id_to_points.get(route);
+        String od_id = idToPoints.get(route);
 
         // Default row for the response in case of an error or something
         String defaultRow = od_id + ",main," + "\"[(" + points[0] + "," + points[1] + "),(" + points[2] + "," + points[3]
@@ -454,17 +484,16 @@ public class AlternativeRoutingExternalities {
         }
 
         System.out.println("Got the route!");
-        return writeOutput(route, optimized, optimized, od_id, path, -10000);
+        return writeOutput(route, optimization, optimization, od_id, path, -10000);
     }
 
-*/
 
-
+/*
     public HashMap<String, String> process_route(int route) {
         // Loop through origin-destination pairs, processing each one for
         // ordinary fastest and traffic-optimized routes
         float[] points = inputPoints.get(route);
-        String od_id = id_to_points.get(route);
+        String od_id = idToPoints.get(route);
 
         HashMap<String, String> responses = new HashMap<>();
 
@@ -531,29 +560,31 @@ public class AlternativeRoutingExternalities {
 
         return responses;
     }
+*/
 
     public static void main(String[] args) throws Exception {
         // Get PBFs from: https://mapzen.com/data/metro-extracts/
 
         // For setting # of cores to use
-        //System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
+        // System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
 
         boolean matchexternal = false;
         boolean getghroutes = true;
-//        boolean useTraffic = false;  // args[0]
+        String typeOfRouting = args[0];
 
         AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities();
-//        ksp.setDataSources();
+        ksp.setDataSources();
 
-
-//        ksp.prepareGraphHopper();
-
-        if (getghroutes) {
-            ksp.setDataSources();
-            ksp.prepareGraphHopper();
-            ksp.setODPairs();
-            ksp.process_routes();
+        if (typeOfRouting.equals("traffic")) {
+            System.out.println("Starting traffic routing");
+            ksp.prepareGraphHopper("traffic");
+        } else {
+            System.out.println("Starting default fastest routing");
+            ksp.prepareGraphHopper("default");
         }
+
+        ksp.setODPairs();
+        ksp.processRoutes();
 
 /*
         if (matchexternal) {
