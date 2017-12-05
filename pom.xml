@@ -75,6 +75,7 @@
         <module>reader-overlay-data</module>
         <module>tools</module>
         <module>web</module>
+        <module>map-matching</module>
     </modules>
     <prerequisites>
         <maven>3.2</maven>
@@ -202,6 +203,7 @@
             <!-- or 0.9-SNAPSHOT for the unstable -->
             <version>0.8.2</version>
         </dependency>
+
     </dependencies>
 
     <distributionManagement>

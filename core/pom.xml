@@ -99,11 +99,20 @@
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>2.6</version>
                     <configuration>
-                        <!-- for usage on android -->
-                        <descriptors>
-                            <descriptor>src/main/assembly/android.xml</descriptor>
-                        </descriptors>
+                        <descriptorRefs>
+                            <descriptorRef>jar-with-dependencies</descriptorRef>
+                        </descriptorRefs>
                     </configuration>
+
+                    <executions> <!-- this appears to make the thing with dependencies -->
+                        <execution>
+                            <id>make-assembly</id>
+                            <phase>integration-test</phase>
+                            <goals>
+                                <goal>single</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <!-- create jar with test classes to be reused in other projects like external or our reader-osm -->
