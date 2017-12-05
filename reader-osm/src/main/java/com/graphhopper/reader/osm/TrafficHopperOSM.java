@@ -27,16 +27,33 @@ import java.io.FileNotFoundException;
  * @author Tushar Chandra
  */
 public class TrafficHopperOSM extends GraphHopperOSM {
+    public Weighting trafficWeighting;
+    private String trafficFN = "../routing/main/data/traffic.csv";
+
+    /**
+     * Create weighting based on traffic data.
+     *
+     * Attempt to access a copy saved to the class if available -- we
+     * neither want, nor need, to create a new one every time.
+     *
+     * @param hintsMap all parameters influencing the weighting. E.g. parameters coming via
+     *                 GHRequest.getHints or directly via "&amp;api.xy=" from the URL of the web UI
+     * @param encoder  the required vehicle
+     * @return Weighting based on traffic data
+     */
     @Override
     public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder) {
-        String trafficFN = "../routing/main/data/traffic.csv";
-        try {
-            return new TrafficWeighting(encoder, trafficFN);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
+        // If we don't have a weighting yet, create a new one; otherwise
+        // just return the one we have.
+        if (this.trafficWeighting == null) {
+            try {
+                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
         }
 
-        throw new IllegalArgumentException("Something broke creating TrafficHopperOSM");
+        return this.trafficWeighting;
     }
 
 }
