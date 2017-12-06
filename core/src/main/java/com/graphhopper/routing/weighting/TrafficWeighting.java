@@ -45,7 +45,7 @@ import java.util.*;
  *
  * @author Tushar Chandra
  */
-public class TrafficWeighting implements Weighting {
+public class TrafficWeighting extends AbstractWeighting {
     /**
      * Converting to seconds is not necessary but makes adding other penalties easier (e.g. turn
      * costs or traffic light costs etc)
@@ -60,9 +60,17 @@ public class TrafficWeighting implements Weighting {
     protected MapMatching mapMatching;
     protected FlagEncoder flagEncoder;
 
+    private static final double KM_PER_MILE = 1.609;
+
+    // This is the conversion factor for taking
+    // edge.distance() [in m] / encoder.speed() [in km/hr]
+    // and converting it to seconds. Multiply by 3600 s / 1 hr
+    // and by 1 km / 1000 m.
+    private static final double TIME_CONV = 3.6;
+
     private static final String[] colors = new String[]{"green", "yellow", "red"};
-    private static final double yellowSpeed = 15 * 1.609;  // 15 mph, but in km/h
-    private static final double redSpeed = 5 * 1.609; // 5 mph, but in km/h
+    private static final double yellowSpeed = 15 * KM_PER_MILE;
+    private static final double redSpeed = 5 * KM_PER_MILE;
 
     /**
      * Create edge weighting (speeds) based on how traffic is moving.
@@ -73,6 +81,7 @@ public class TrafficWeighting implements Weighting {
      * @throws FileNotFoundException if the traffic file doesn't exist
      */
     public TrafficWeighting(FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
+        super(encoder);
         this.mapMatching = mapMatching;
         this.flagEncoder = encoder;
 
@@ -177,107 +186,38 @@ public class TrafficWeighting implements Weighting {
         return segments;
     }
 
+    /**
+     * Return the minimum possible weight, used for heuristic calculation.
+     *
+     * @param distance
+     * @return weight (time in seconds)
+     */
+    @Override
+    public double getMinWeight(double distance) {
+        return distance / redSpeed * TIME_CONV;
+    }
 
     /**
-     * Read traffic data from a CSV; return all paths
+     * Calculate the weighting that a given edge should have. Note that high
+     * weights correspond to unfavorable edges; the natural mapping from the
+     * speeds calculated earlier is to weight by time, which sends high
+     * speeds to more favorable, low times.
      *
-     * @param trafficFN file name for CSV of traffic data
-     * @return information about where traffic is light/moderate/heavy
+     * @param edgeState        the edge for which the weight should be calculated
+     * @param reverse          if the specified edge is specified in reverse direction e.g. from the reverse
+     *                         case of a bidirectional search.
+     * @param prevOrNextEdgeId if reverse is false this has to be the previous edgeId, if true it
+     *                         has to be the next edgeId in the direction from start to end.
+     * @return
      */
-    private HashMap<String, ArrayList<ArrayList<GHPoint>>> readTrafficPaths(String trafficFN) throws FileNotFoundException {
-        // Open file and get header
-        Scanner sc_in = new Scanner(new File(trafficFN));
-        String header = sc_in.nextLine();
-        System.out.println("Traffic data header: " + header);
-
-        // Set up results -- green is light traffic, yellow is medium traffic,
-        // red is heavy traffic. Each value will be a list of paths, which
-        // we itself is a List<GHPoint>.
-        HashMap<String, ArrayList<ArrayList<GHPoint>>> roads = new HashMap<>();
-        for (String color : colors) {
-            roads.put(color, new ArrayList<ArrayList<GHPoint>>());
-        }
-
-        String color;
-        float segmentID;
-        float originLon;
-        float originLat;
-        float destLon;
-        float destLat;
-
-        float currentSegmentID = -1;
-        ArrayList<GHPoint> currentPath = null;
-
-        while (sc_in.hasNext()) {
-            // Every other line is empty, because Windows
-            String line = sc_in.nextLine();
-            String[] vals = line.split(",");
-            if (vals.length <= 1) continue;
-
-            // Read the actual line information
-            segmentID = Float.valueOf(vals[0]);
-            color = vals[1];
-            originLon = Float.valueOf(vals[2]);
-            originLat = Float.valueOf(vals[3]);
-            destLon = Float.valueOf(vals[4]);
-            destLat = Float.valueOf(vals[5]);
-
-            // If we're starting a new segment, flush the current path and save it to the
-            // list. Then restart the path with the origin and destination. Update
-            // currentSegmentID with the ID of the new segment.
-            if (segmentID != currentSegmentID) {
-                if (currentPath != null) {  // it's null at the start, so catch that
-                    roads.get(color).add(currentPath);
-                }
-
-                currentPath = new ArrayList<>();
-                currentPath.add(new GHPoint(originLat, originLon));
-                currentPath.add(new GHPoint(destLat, destLon));
-
-                currentSegmentID = segmentID;
-            }
-
-            // Otherwise, continue the previous segment with the destination (since the origin
-            // is the destination of the previous line)
-            else {
-                currentPath.add(new GHPoint(destLat, destLon));
-            }
-        }
-
-        return roads;
-    }
-
-
-
-/*
-    public AvoidanceWeighting(FlagEncoder encoder, PMap pMap, HashSet<Integer> bannedEdges) {
-        super(encoder);
-        headingPenalty = pMap.getDouble(Routing.HEADING_PENALTY, Routing.DEFAULT_HEADING_PENALTY);
-        headingPenaltyMillis = Math.round(headingPenalty * 1000);
-        maxSpeed = encoder.getMaxSpeed() / SPEED_CONV;
-        this.bannedEdges = bannedEdges;
-    }
-*/
-
-    @Override
-    public double getMinWeight(double distance) {
-        return 12;
-    }
-
-
-
-
-/*
-    @Override
-    public double getMinWeight(double distance) {
-        return distance / maxSpeed;
-    }
-*/
-
     @Override
     public double calcWeight(EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId) {
-        return 12;
+        double speed = reverse ? flagEncoder.getReverseSpeed(edgeState.getFlags()) : flagEncoder.getSpeed(edgeState.getFlags());
+        double time = edgeState.getDistance() / speed * TIME_CONV;
+        return time;
     }
+
+
 
 /*
     @Override
@@ -306,7 +246,8 @@ public class TrafficWeighting implements Weighting {
 
     @Override
     public long calcMillis(EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId) {
-        return 11222;
+        return super.calcMillis(edgeState, reverse, prevOrNextEdgeId);
+    }
 
 /*
         // TODO move this to AbstractWeighting?
@@ -317,7 +258,6 @@ public class TrafficWeighting implements Weighting {
 
         return time + super.calcMillis(edgeState, reverse, prevOrNextEdgeId);
 */
-    }
 
     @Override
     public FlagEncoder getFlagEncoder() {
