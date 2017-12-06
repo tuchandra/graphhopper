@@ -55,10 +55,10 @@ public class TrafficWeighting implements Weighting {
 //    private final long headingPenaltyMillis;
 //    private final double maxSpeed;
 //    private HashSet<Integer> bannedEdges;
-    protected FlagEncoder flagEncoder;
     protected Graph graphStorage;
     protected LocationIndex locationIndex;
     protected MapMatching mapMatching;
+    protected FlagEncoder flagEncoder;
 
     private static final String[] colors = new String[]{"green", "yellow", "red"};
     private static final double yellowSpeed = 15 * 1.609;  // 15 mph, but in km/h
@@ -66,8 +66,8 @@ public class TrafficWeighting implements Weighting {
 
 
     public TrafficWeighting(FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
-        this.flagEncoder = encoder;
         this.mapMatching = mapMatching;
+        this.flagEncoder = encoder;
 
         // Get traffic data from file
         HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
@@ -95,6 +95,16 @@ public class TrafficWeighting implements Weighting {
 
                 MatchResult mr = mapMatching.doWork(pathGPX);
                 EdgeMatch match = mr.getEdgeMatches().get(0);
+                EdgeIteratorState edge = match.getEdgeState();
+
+                double oldSpeed = encoder.getSpeed(edge.getFlags());
+                double newSpeed = (color == "yellow") ? yellowSpeed : redSpeed;
+                if (newSpeed != oldSpeed) {
+                    System.out.println("Editing weight for edge: " + edge.getName());
+                    System.out.println("Old speed: " + oldSpeed / 1.5 + " mph. New speed: " + newSpeed / 1.5 + "mph.");
+                    edge.setFlags(encoder.setSpeed(edge.getFlags(), newSpeed));
+                }
+
             }
         }
     }
@@ -109,7 +119,6 @@ public class TrafficWeighting implements Weighting {
      * @param locationIndex Location index
      */
     public TrafficWeighting(FlagEncoder encoder, String trafficFN, LocationIndex locationIndex, Graph storage) throws FileNotFoundException {
-        this.flagEncoder = encoder;
         this.graphStorage = storage;
         this.locationIndex = locationIndex;
 
@@ -153,11 +162,11 @@ public class TrafficWeighting implements Weighting {
 
                 // Update edge speed
                 EdgeIteratorState edge = storage.getEdgeIteratorState(edgeID, Integer.MIN_VALUE);
-                double oldSpeed = this.flagEncoder.getSpeed(edge.getFlags());
+                double oldSpeed = encoder.getSpeed(edge.getFlags());
                 double newSpeed = (color == "yellow") ? yellowSpeed : redSpeed;
                 if (newSpeed != oldSpeed) {
                     System.out.println("Editing weight for edge: " + edgeID);
-                    this.flagEncoder.setSpeed(edge.getFlags(), newSpeed);
+                    encoder.setSpeed(edge.getFlags(), newSpeed);
                 }
             }
 
