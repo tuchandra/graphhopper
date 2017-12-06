@@ -64,59 +64,74 @@ public class TrafficWeighting implements Weighting {
     private static final double yellowSpeed = 15 * 1.609;  // 15 mph, but in km/h
     private static final double redSpeed = 5 * 1.609; // 5 mph, but in km/h
 
-
+    /**
+     * Create edge weighting (speeds) based on how traffic is moving.
+     *
+     * @param encoder the required vehicle
+     * @param trafficFN filename to traffic CSV file
+     * @param mapMatching instance of mapMatching to use
+     * @throws FileNotFoundException if the traffic file doesn't exist
+     */
     public TrafficWeighting(FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
         this.mapMatching = mapMatching;
         this.flagEncoder = encoder;
 
-        // Get traffic data from file
-        HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
-        trafficData = readTrafficPaths(trafficFN);
+        // Read traffic data from file
         System.out.println("Reading traffic data from file.");
-
-        // For moderate and heavy traffic, find nearest edge to each road
+        HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
+        trafficData = readTrafficCSV(trafficFN);
         ArrayList<ArrayList<GHPoint>> paths;
-        TIntHashSet visitedEdgeIDs = new TIntHashSet();
 
         for (String color : colors) {
-            // Don't do anything with light traffic
+            // Assume that light traffic is moving at the default speed
             if (color.equals("green")) continue;
             paths = trafficData.get(color);
 
-            // Convert each path to a GPXEntry list, then match it
-            // and find the closest edge
+            // Find the closest edge to each path
             for (ArrayList<GHPoint> path : paths) {
                 System.out.println("Processing: " + path.toString());
-                ArrayList<GPXEntry> pathGPX = new ArrayList<>();
-                for (GHPoint p : path) {
-                    // arbitrarily set time to 0
-                    pathGPX.add(new GPXEntry(p, 0));
+
+                // Convert each GHPoint to a GPXEntry (and arbitrarily
+                // set the time to 0) for matching
+                ArrayList<GPXEntry> segmentGPX = new ArrayList<>();
+                segmentGPX.add(new GPXEntry(path.get(0), 0));
+                segmentGPX.add(new GPXEntry(path.get(1), 0));
+
+                // Match road segment to graph edge
+                MatchResult mr;
+                try {
+                    mr = mapMatching.doWork(segmentGPX);
+                } catch (Exception e) {
+                    System.out.println("Couldn't find match for segment: " + segmentGPX.toString() + "; skipping.");
+                    continue;
                 }
 
-                MatchResult mr = mapMatching.doWork(pathGPX);
                 EdgeMatch match = mr.getEdgeMatches().get(0);
                 EdgeIteratorState edge = match.getEdgeState();
 
+                // Set speed of edge
                 double oldSpeed = encoder.getSpeed(edge.getFlags());
-                double newSpeed = (color == "yellow") ? yellowSpeed : redSpeed;
-                if (newSpeed != oldSpeed) {
-                    System.out.println("Editing weight for edge: " + edge.getName());
-                    System.out.println("Old speed: " + oldSpeed / 1.5 + " mph. New speed: " + newSpeed / 1.5 + "mph.");
-                    edge.setFlags(encoder.setSpeed(edge.getFlags(), newSpeed));
-                }
+                double newSpeed = color.equals("yellow") ? yellowSpeed : redSpeed;
+                edge.setFlags(encoder.setSpeed(edge.getFlags(), newSpeed));
+
+                System.out.println("Editing weight for edge: " + edge.getName());
+                System.out.println("Old speed: " + oldSpeed / 1.5 + " mph. New speed: " + newSpeed / 1.5 + "mph.");
 
             }
         }
     }
 
 
-
-
     /**
-     * Read traffic data from a CSV; return all segments
+     * Read traffic data from a CSV
      *
-     * @param trafficFN file name for CSV of traffic data
-     * @return information about where traffic is light/moderate/heavy
+     * Given a CSV of traffic data, read each row as light / moderate /
+     * heavy traffic (green / yellow / red). Return a HashMap that has
+     * as keys those categories, and as values a list of road segments
+     * (which are themselves two GHPoints).
+     *
+     * @param trafficFN filename to traffic CSV file
+     * @return traffic information
      */
     private HashMap<String, ArrayList<ArrayList<GHPoint>>> readTrafficCSV(String trafficFN) throws FileNotFoundException {
         // Open file and get header
@@ -124,8 +139,7 @@ public class TrafficWeighting implements Weighting {
         String header = sc_in.nextLine();
         System.out.println("Traffic data header: " + header);
 
-        // Set up results -- green is light traffic, yellow is medium traffic,
-        // red is heavy traffic. Each value will be a list of pairs, where
+        // Set up results. Each value will be a list of pairs, where
         // each pair has an origin and destination of a road segment.
         HashMap<String, ArrayList<ArrayList<GHPoint>>> segments = new HashMap<>();
         for (String color : colors) {
@@ -151,12 +165,12 @@ public class TrafficWeighting implements Weighting {
             destLon = Float.valueOf(vals[4]);
             destLat = Float.valueOf(vals[5]);
 
-            // segment = (origin, dest) pair
+            // Each segment consists of two GHPoints; create those
             ArrayList<GHPoint> segment = new ArrayList<>();
             segment.add(new GHPoint(originLat, originLon));
             segment.add(new GHPoint(destLat, destLon));
 
-            // store to the right color
+            // Update list of segments
             segments.get(color).add(segment);
         }
 
