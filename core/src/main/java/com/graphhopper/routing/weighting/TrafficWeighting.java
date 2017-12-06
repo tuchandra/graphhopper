@@ -111,69 +111,6 @@ public class TrafficWeighting implements Weighting {
 
 
 
-    /**
-     * Initialize traffic-based weighting with data from a CSV.
-     *
-     * @param encoder Not sure what this is
-     * @param trafficFN Filename for CSV of traffic data
-     * @param locationIndex Location index
-     */
-    public TrafficWeighting(FlagEncoder encoder, String trafficFN, LocationIndex locationIndex, Graph storage) throws FileNotFoundException {
-        this.graphStorage = storage;
-        this.locationIndex = locationIndex;
-
-        // Get traffic data from file
-        HashMap<String, ArrayList<ArrayList<GHPoint>>> trafficData;
-        trafficData = readTrafficCSV(trafficFN);
-        System.out.println("Reading traffic data from file.");
-
-        // For moderate and heavy traffic, find nearest edge to each road
-        ArrayList<ArrayList<GHPoint>> segments;
-        TIntHashSet visitedEdgeIDs = new TIntHashSet();
-
-        for (String color : colors) {
-            // Don't do anything with light traffic
-            if (color.equals("green")) continue;
-            segments = trafficData.get(color);
-
-            // For each segment, look up the midpoint and find the edge
-            // closest to it. This can be improved by using the map
-            // matching component.
-            for (ArrayList<GHPoint> segment : segments) {
-                double midLat = (segment.get(0).lat + segment.get(1).lat) / 2.0;
-                double midLon = (segment.get(0).lon + segment.get(1).lon) / 2.0;
-
-                // Find closest edge
-                QueryResult qr = locationIndex.findClosest(midLat, midLon, EdgeFilter.ALL_EDGES);
-                if (!qr.isValid()) {
-                    System.out.println("No matching road found for entry " + segment.toString());
-                    continue;
-                }
-
-                // Check if we already visited this edge (wouldn't happen with
-                // map matcher)
-                int edgeID = qr.getClosestEdge().getEdge();
-                if (visitedEdgeIDs.contains(edgeID)) {
-                    System.out.println("Attempting to update weight for edge already hit " + edgeID);
-                    continue;
-                }
-
-                visitedEdgeIDs.add(edgeID);
-
-                // Update edge speed
-                EdgeIteratorState edge = storage.getEdgeIteratorState(edgeID, Integer.MIN_VALUE);
-                double oldSpeed = encoder.getSpeed(edge.getFlags());
-                double newSpeed = (color == "yellow") ? yellowSpeed : redSpeed;
-                if (newSpeed != oldSpeed) {
-                    System.out.println("Editing weight for edge: " + edgeID);
-                    encoder.setSpeed(edge.getFlags(), newSpeed);
-                }
-            }
-
-        }
-
-    }
-
 
     /**
      * Read traffic data from a CSV; return all segments
