@@ -24,6 +24,7 @@ import com.graphhopper.matching.MapMatching;
 import com.graphhopper.matching.MatchResult;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.LocationIndex;
+import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.Parameters;
 import com.sun.org.apache.xml.internal.security.algorithms.JCEMapper;
 
@@ -37,7 +38,7 @@ public class TrafficHopperOSM extends GraphHopperOSM {
     public Weighting trafficWeighting;
     public MapMatching mapMatching;
     private String trafficFN = "../routing/main/data/traffic.csv";
-
+    // public String trafficFN = "./data/traffic.csv";
 
 
     /**
@@ -70,14 +71,12 @@ public class TrafficHopperOSM extends GraphHopperOSM {
     public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder) {
         // If we don't have a weighting yet, create a new one; otherwise
         // just return the one we have.
+        Weighting adjustedWeighting;
         if (this.trafficWeighting == null) {
             try {
                 prepareMapMatching();
-//                LocationIndex locationIndex = this.getLocationIndex();
-//                Graph graphStorage = this.getGraphHopperStorage();
-//                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN, locationIndex, graphStorage);
-
-                this.trafficWeighting = new TrafficWeighting(encoder, trafficFN, mapMatching);
+                adjustedWeighting = new FastestWeighting(encoder, hintsMap);
+                this.trafficWeighting = new TrafficWeighting(adjustedWeighting, encoder, trafficFN, mapMatching);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
