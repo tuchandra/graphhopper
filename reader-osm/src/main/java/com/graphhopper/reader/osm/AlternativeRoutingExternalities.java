@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
-// import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -27,46 +26,32 @@ public class AlternativeRoutingExternalities {
 
     private GraphHopper hopper;
     private MapMatching mapMatching;
-    private String city;  // not used
-    private String route_type;  // not used
-    private String bannedGridCellsFn;
     private HashMap<String, FileWriter> outputFiles;
-    private HashMap<String, Integer> gvHeaderMap;
-    private HashMap<String, Float> gridBeauty;
     private ArrayList<String> optimizations = new ArrayList<>();
-    private ArrayList<String> gridValuesFNs = new ArrayList<>();
     private ArrayList<float[]> inputPoints = new ArrayList<>();
     private ArrayList<String> idToPoints = new ArrayList<>();
 
 
     // This is kind of a shitshow, clean up eventually
-//    private String dataFolder = "./data/";
     private String dataFolder = "C:/Users/Tushar/CS/routing-project/routing/main/data/";
-//    private String graphFolder;
     private String osmFile;
     private String inputPointsFN;
     private String outputRoutesFN;
     private static String[] routesFromGMapsFNs = new String[2];
 
-//    private String osmFile = "./reader-osm/files/";
     private String graphFolder = "./reader-osm/target/tmp/";
-//    private String inputPointsFN = "../data/intermediate/";
-//    private String outputPointsFN = "../data/routes/";
-
-    private String gvfnStem = "../data/intermediate/";
-    private String gctfnStem = "../data/intermediate/";
     private String outputheader = "ID,name,polyline_points,total_time_in_sec,total_distance_in_meters," +
             "number_of_steps,maneuvers,beauty,simplicity,pctNonHighwayTime,pctNonHighwayDist,pctNeiTime,pctNeiDist" +
             System.getProperty("line.separator");
 
-    public AlternativeRoutingExternalities() {
+    private AlternativeRoutingExternalities() {
         this.outputFiles = new HashMap<>();
     }
 
     /**
      * Set all the data sources (file names, mainly).
      */
-    public void setDataSources() {
+    private void setDataSources() {
         osmFile = dataFolder + "chicago_illinois.osm.pbf";
         inputPointsFN = dataFolder + "chicago_od_pairs_short.csv";
         outputRoutesFN = dataFolder + "chicago_routes_gh.csv";
@@ -90,7 +75,7 @@ public class AlternativeRoutingExternalities {
      *
      * @param type either "default" or "traffic"
      */
-    public void prepareGraphHopper(String type) {
+    private void prepareGraphHopper(String type) {
         // Set GraphHopper instance differently based on desired type.
         if (type.equals("traffic")) {
             hopper = new TrafficHopperOSM().forDesktop().setCHEnabled(false);
@@ -114,7 +99,7 @@ public class AlternativeRoutingExternalities {
      *
      * @throws Exception if bad stuff happens, idk
      */
-    public void setODPairs() throws Exception {
+    private void setODPairs() throws Exception {
         // Create an output file for each optimization
         for (String optimization : optimizations) {
             outputFiles.put(optimization, new FileWriter(outputRoutesFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
@@ -157,7 +142,7 @@ public class AlternativeRoutingExternalities {
     }
 
     // what the FUCK is this method
-    public String writeOutput(int i, String optimized, String name, String od_id, PathWrapper bestPath, float score) {
+    private String writeOutput(int i, String optimized, String name, String od_id, PathWrapper bestPath, float score) {
 
         // points, distance in meters and time in seconds (convert from ms) of the full path
         PointList pointList = bestPath.getPoints();
@@ -202,9 +187,9 @@ public class AlternativeRoutingExternalities {
      *
      * For every optimization and for every OD pair, find the best route
      * and write it to the output file we care about.
-     * @throws Exception
+     * @throws Exception if the file isn't found or something
      */
-    public void processRoutes() throws Exception {
+    private void processRoutes() throws Exception {
         AtomicInteger numProcessed = new AtomicInteger();
         int numODPairs = idToPoints.size();
 
@@ -245,7 +230,7 @@ public class AlternativeRoutingExternalities {
      * @param route route ID
      * @return best path found
      */
-    public String getBestRoute(String optimization, int route) {
+    private String getBestRoute(String optimization, int route) {
         float[] points = inputPoints.get(route);
         String od_id = idToPoints.get(route);
 
@@ -285,7 +270,7 @@ public class AlternativeRoutingExternalities {
     /**
      * Prepare MapMatching object
      */
-    public void prepareMapMatching() {
+    private void prepareMapMatching() {
         AlgorithmOptions algoOpts = AlgorithmOptions.start().
                 algorithm(Parameters.Algorithms.DIJKSTRA).
                 traversalMode(hopper.getTraversalMode()).
@@ -298,10 +283,10 @@ public class AlternativeRoutingExternalities {
     }
 
     /**
-     * TODO THIS DOCSTRING
+     * Convert CSV of GMaps-style routes into CSV of GraphHopper-style routes
      * @param inFN input filename
      * @param outFN output filename
-     * @throws IOException
+     * @throws IOException if some files aren't found
      */
     public void pointsToPath(String inFN, String outFN) throws IOException {
         Scanner sc_in = new Scanner(new File(inFN));
@@ -372,13 +357,13 @@ public class AlternativeRoutingExternalities {
 
     /**
      *
-     * @param pointLists
-     * @param routeNames
-     * @param optimized
-     * @return
+     * @param pointLists all routes
+     * @param routeNames names of each route (for writing purposes)
+     * @param optimized optimization used (e.g., traffic)
+     * @return routeID : path mapping
      */
-    public HashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
-                                                      HashMap<String, String> routeNames, String optimized) {
+    private HashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
+                                             HashMap<String, String> routeNames, String optimized) {
 
         int numProcessed = 0;
         int numRoutes = pointLists.size();
@@ -403,11 +388,10 @@ public class AlternativeRoutingExternalities {
     }
 
     /**
-     *
-     * @param gpxEntries
-     * @return
+     * @param gpxEntries list of points to convert
+     * @return  path of the points from above
      */
-    public PathWrapper GPXToPath(ArrayList<GPXEntry> gpxEntries) {
+    private PathWrapper GPXToPath(ArrayList<GPXEntry> gpxEntries) {
         PathWrapper matchGHRsp = new PathWrapper();
         try {
             MatchResult mr = mapMatching.doWork(gpxEntries);
@@ -451,34 +435,5 @@ public class AlternativeRoutingExternalities {
             ksp.setODPairs();
             ksp.processRoutes();
         }
-
-
-/*
-        if (matchexternal) {
-            ksp.setDataSources();
-            ksp.getGridValues();
-            ksp.prepareGraphHopper();
-            ksp.prepMapMatcher();
-            String inputfolder = "../data/intermediate/";
-            String outputfolder = "../data/routes/";
-            ArrayList<String> platforms = new ArrayList<>();
-            platforms.add("google");
-            platforms.add("mapquest");
-            ArrayList<String> conditions = new ArrayList<>();
-            conditions.add("traffic");
-            ArrayList<String> routetypes = new ArrayList<>();
-            routetypes.add("main");
-            for (String platform : platforms) {
-                for (String condition : conditions) {
-                    for (String routetype : routetypes) {
-                        ksp.pointsToPath(inputfolder + city + "_" + platform + "_" + condition +
-                                "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" +
-                                platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
-                    }
-                }
-            }
-        }
-*/
-
     }
 }
