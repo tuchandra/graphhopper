@@ -8,6 +8,8 @@ import com.graphhopper.routing.AlgorithmOptions;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.HintsMap;
+import com.graphhopper.matching.MapMatching;
+import com.graphhopper.matching.MatchResult;
 import com.graphhopper.util.*;
 
 import java.io.File;
@@ -24,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AlternativeRoutingExternalities {
 
     private GraphHopper hopper;
+    private MapMatching mapMatching;
     private String city;  // not used
     private String route_type;  // not used
     private String bannedGridCellsFn;
@@ -37,11 +40,13 @@ public class AlternativeRoutingExternalities {
 
 
     // This is kind of a shitshow, clean up eventually
+//    private String dataFolder = "./data/";
     private String dataFolder = "C:/Users/Tushar/CS/routing-project/routing/main/data/";
-    private String osmFile = dataFolder;
-//    private String graphFolder = dataFolder;
-    private String inputPointsFN = dataFolder;
-    private String outputPointsFN = dataFolder;
+//    private String graphFolder;
+    private String osmFile;
+    private String inputPointsFN;
+    private String outputRoutesFN;
+    private static String[] routesFromGMapsFNs = new String[2];
 
 //    private String osmFile = "./reader-osm/files/";
     private String graphFolder = "./reader-osm/target/tmp/";
@@ -62,9 +67,12 @@ public class AlternativeRoutingExternalities {
      * Set all the data sources (file names, mainly).
      */
     public void setDataSources() {
-        osmFile = osmFile + "chicago_illinois.osm.pbf";
-        inputPointsFN = dataFolder + "small_chicago_od_pairs.csv";
-        outputPointsFN = dataFolder + "chicago_routes_gh.csv";
+        osmFile = dataFolder + "chicago_illinois.osm.pbf";
+        inputPointsFN = dataFolder + "chicago_od_pairs_short.csv";
+        outputRoutesFN = dataFolder + "chicago_routes_gh.csv";
+
+        routesFromGMapsFNs[0] = dataFolder + "chicago_routes_gmaps_fastest.csv";
+        routesFromGMapsFNs[1] = dataFolder + "chicago_routes_gmaps_traffic.csv";
 
         // This is where some kind of traffic CSV will go
         // if (IntelliJ.doesNotHateYou() && Java.doesNotSuck()) do.things();
@@ -109,7 +117,7 @@ public class AlternativeRoutingExternalities {
     public void setODPairs() throws Exception {
         // Create an output file for each optimization
         for (String optimization : optimizations) {
-            outputFiles.put(optimization, new FileWriter(outputPointsFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
+            outputFiles.put(optimization, new FileWriter(outputRoutesFN.replaceFirst(".csv", "_" + optimization + ".csv"), true));
         }
 
         for (FileWriter fw : outputFiles.values()) {
@@ -233,7 +241,7 @@ public class AlternativeRoutingExternalities {
 
     /**
      * Given an optimization and a route ID, compute the best path
-     * @param optimization What the route is based off (not used)
+     * @param optimization What the route is based off (only used in writing)
      * @param route route ID
      * @return best path found
      */
@@ -273,29 +281,177 @@ public class AlternativeRoutingExternalities {
         return writeOutput(route, optimization, optimization, od_id, path, -10000);
     }
 
+
+    /**
+     * Prepare MapMatching object
+     */
+    public void prepareMapMatching() {
+        AlgorithmOptions algoOpts = AlgorithmOptions.start().
+                algorithm(Parameters.Algorithms.DIJKSTRA).
+                traversalMode(hopper.getTraversalMode()).
+                hints(new HintsMap().put("weighting", "fastest").put("vehicle", "car")).
+                build();
+
+        mapMatching = new MapMatching(hopper, algoOpts);
+        mapMatching.setTransitionProbabilityBeta(0.00959442);
+        mapMatching.setMeasurementErrorSigma(100);
+    }
+
+    /**
+     * TODO THIS DOCSTRING
+     * @param inFN input filename
+     * @param outFN output filename
+     * @throws IOException
+     */
+    public void pointsToPath(String inFN, String outFN) throws IOException {
+        Scanner sc_in = new Scanner(new File(inFN));
+        sc_in.nextLine();  // header
+
+        // Indices for the headers. There are others, but we don't care about them
+        int idIdx = 0;
+        int nameIdx = 1;
+        int polylineIdx = 2;
+
+        // Things we need to process the routes
+        String line;
+        String[] vals;
+        String name;
+        String routeID;
+        String polyline;
+
+        String[] points;
+        String[] pointParts;
+        ArrayList<GPXEntry> pointsList;
+        double lat, lon;
+
+        String optimized = inFN.contains("fastest") ? "gm_fastest" : "gm_traffic";
+
+        HashMap<String, ArrayList<GPXEntry>> pointsLists = new HashMap<>();
+        HashMap<String, String> routeNames = new HashMap<>();
+        while (sc_in.hasNext()) {
+            line = sc_in.nextLine();
+            vals = line.split(",");
+            if (vals.length <= 1) continue;  // every other line empty because Windows
+
+            // Skip alternate routes (why were these generated?)
+            name = vals[nameIdx];
+            if (!name.equalsIgnoreCase("main")) continue;
+
+            routeID = vals[idIdx];
+
+            // Polyline format is "[(lat/long)+(lat/long)+...+(lat/long)]", parse so we
+            // only have the sequence of parens without the quote or brackets
+            polyline = vals[polylineIdx];
+            polyline = polyline.substring(2, polyline.length() - 2);
+            points = polyline.split("\\+");
+
+            // Convert array of points to ArrayList<GPXEntry>
+            pointsList = new ArrayList<>();
+            for (String point : points) {
+                // Remove open and closing parens, then split on the / that separates lat/lon
+                pointParts = point.substring(1, point.length() - 1).split("/");
+                lat = Double.valueOf(pointParts[0]);
+                lon = Double.valueOf(pointParts[1]);
+                pointsList.add(new GPXEntry(lat, lon, 0));  // arbitrarily set time=0
+            }
+
+            pointsLists.put(routeID, pointsList);
+            routeNames.put(routeID, optimized + "_matched");
+        }
+
+        HashMap<String, String> results = getPaths(pointsLists, routeNames, optimized);
+
+        // Write results to a new file
+        FileWriter sc_out = new FileWriter(outFN, true);
+        sc_out.write(outputheader);
+        for (String result : results.values()) {
+            sc_out.write(result);
+        }
+        sc_out.close();
+    }
+
+    /**
+     *
+     * @param pointLists
+     * @param routeNames
+     * @param optimized
+     * @return
+     */
+    public HashMap<String, String> getPaths(HashMap<String, ArrayList<GPXEntry>> pointLists,
+                                                      HashMap<String, String> routeNames, String optimized) {
+
+        int numProcessed = 0;
+        int numRoutes = pointLists.size();
+        Set<String> routeIDs = pointLists.keySet();
+
+        HashMap<String, String> results = new HashMap<>();
+        for (String routeID : routeIDs) {
+            numProcessed++;
+            System.out.println("Processing: " + routeID);
+            PathWrapper path = GPXToPath(pointLists.get(routeID));
+
+            if (path.getDistance() > 0) {
+                float score = -10001;
+                results.put(routeID, writeOutput(numProcessed, optimized, routeNames.get(routeID), routeID, path, score));
+            }
+
+            if (numProcessed % 10 == 0) {
+                System.out.println("\t\t" + numProcessed + " of " + numRoutes + " routes matched.");
+            }
+        }
+        return results;
+    }
+
+    /**
+     *
+     * @param gpxEntries
+     * @return
+     */
+    public PathWrapper GPXToPath(ArrayList<GPXEntry> gpxEntries) {
+        PathWrapper matchGHRsp = new PathWrapper();
+        try {
+            MatchResult mr = mapMatching.doWork(gpxEntries);
+            Path path = mapMatching.calcPath(mr);
+            new PathMerger().doWork(matchGHRsp, Collections.singletonList(path), new TranslationMap().doImport().getWithFallBack(Locale.US));
+        }
+        catch (RuntimeException e) {
+            System.out.println("Broken GPX trace.");
+            System.out.println(e.getMessage());
+        }
+        return matchGHRsp;
+    }
+
     public static void main(String[] args) throws Exception {
         // Get PBFs from: https://mapzen.com/data/metro-extracts/
 
         // For setting # of cores to use
         // System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "12");
 
-        boolean matchexternal = false;
-        boolean getghroutes = true;
-        String typeOfRouting = args[0];
+        String action = args[0];
 
         AlternativeRoutingExternalities ksp = new AlternativeRoutingExternalities();
         ksp.setDataSources();
 
-        if (typeOfRouting.equals("traffic")) {
+        if (action.equals("matching")) {
+            System.out.println("Starting map matching on Google Maps paths");
+            ksp.prepareGraphHopper("default");
+            ksp.prepareMapMatching();
+
+            for (String routeFN : routesFromGMapsFNs) {
+                ksp.pointsToPath(routeFN, routeFN.replace(".csv", "_matched.csv"));
+            }
+        } else if (action.equals("traffic")) {
             System.out.println("Starting traffic routing");
             ksp.prepareGraphHopper("traffic");
-        } else {
+            ksp.setODPairs();
+            ksp.processRoutes();
+        } else if (action.equals("default")) {
             System.out.println("Starting default fastest routing");
             ksp.prepareGraphHopper("default");
+            ksp.setODPairs();
+            ksp.processRoutes();
         }
 
-        ksp.setODPairs();
-        ksp.processRoutes();
 
 /*
         if (matchexternal) {
@@ -315,7 +471,7 @@ public class AlternativeRoutingExternalities {
             for (String platform : platforms) {
                 for (String condition : conditions) {
                     for (String routetype : routetypes) {
-                        ksp.PointsToPath(inputfolder + city + "_" + platform + "_" + condition +
+                        ksp.pointsToPath(inputfolder + city + "_" + platform + "_" + condition +
                                 "_routes_" + routetype + "_gpx.csv", outputfolder + city + "_" + odtype + "_" +
                                 platform + "_" + condition + "_routes_" + routetype + "_ghenhanced_sigma100_transitionDefault.csv");
                     }
