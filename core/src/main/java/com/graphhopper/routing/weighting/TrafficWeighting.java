@@ -45,7 +45,7 @@ import java.util.*;
  *
  * @author Tushar Chandra
  */
-public class TrafficWeighting extends AbstractWeighting {
+public class TrafficWeighting extends AbstractAdjustedWeighting {
     /**
      * Converting to seconds is not necessary but makes adding other penalties easier (e.g. turn
      * costs or traffic light costs etc)
@@ -80,8 +80,8 @@ public class TrafficWeighting extends AbstractWeighting {
      * @param mapMatching instance of mapMatching to use
      * @throws FileNotFoundException if the traffic file doesn't exist
      */
-    public TrafficWeighting(FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
-        super(encoder);
+    public TrafficWeighting(Weighting superWeighting, FlagEncoder encoder, String trafficFN, MapMatching mapMatching) throws FileNotFoundException {
+        super(superWeighting);
         this.mapMatching = mapMatching;
         this.flagEncoder = encoder;
 
@@ -124,12 +124,11 @@ public class TrafficWeighting extends AbstractWeighting {
                 edge.setFlags(encoder.setSpeed(edge.getFlags(), newSpeed));
 
                 System.out.println("Editing weight for edge: " + edge.getName());
-                System.out.println("Old speed: " + oldSpeed / 1.5 + " mph. New speed: " + newSpeed / 1.5 + "mph.");
+                System.out.println("Old speed: " + oldSpeed / KM_PER_MILE + " mph. New speed: " + newSpeed / KM_PER_MILE + "mph.");
 
             }
         }
     }
-
 
     /**
      * Read traffic data from a CSV
@@ -217,47 +216,10 @@ public class TrafficWeighting extends AbstractWeighting {
         return time;
     }
 
-
-
-/*
-    @Override
-    public double calcWeight(EdgeIteratorState edge, boolean reverse, int prevOrNextEdgeId) {
-        double speed = reverse ? flagEncoder.getReverseSpeed(edge.getFlags()) : flagEncoder.getSpeed(edge.getFlags());
-        if (speed == 0)
-            return Double.POSITIVE_INFINITY;
-
-        if (speed < 72) {  // 45 mph
-            if (bannedEdges.contains(edge.getEdge())) {
-                return Double.POSITIVE_INFINITY;
-            }
-        }
-
-        double time = edge.getDistance() / speed * SPEED_CONV;
-
-        // add direction penalties at start/stop/via points
-        boolean unfavoredEdge = edge.getBool(EdgeIteratorState.K_UNFAVORED_EDGE, false);
-        if (unfavoredEdge)
-            time += headingPenalty;
-
-        return time;
-    }
-*/
-
-
     @Override
     public long calcMillis(EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId) {
         return super.calcMillis(edgeState, reverse, prevOrNextEdgeId);
     }
-
-/*
-        // TODO move this to AbstractWeighting?
-        long time = 0;
-        boolean unfavoredEdge = edgeState.getBool(EdgeIteratorState.K_UNFAVORED_EDGE, false);
-        if (unfavoredEdge)
-            time += headingPenaltyMillis;
-
-        return time + super.calcMillis(edgeState, reverse, prevOrNextEdgeId);
-*/
 
     @Override
     public FlagEncoder getFlagEncoder() {
