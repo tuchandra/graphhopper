@@ -4,6 +4,7 @@
 
 GraphHopper is a fast and memory efficient Java road routing engine released under Apache License 2.0.
 Per default it uses OpenStreetMap data but can import other data sources.
+This is a fork created by Tushar Chandra in November and December 2017.
 
 # Community
 
